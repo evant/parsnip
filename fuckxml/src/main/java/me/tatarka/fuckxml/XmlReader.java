@@ -7,6 +7,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.util.Arrays;
 
+import jdk.nashorn.internal.runtime.regexp.joni.ast.CClassNode;
 import okio.Buffer;
 import okio.BufferedSource;
 import okio.ByteString;
@@ -36,6 +37,12 @@ public class XmlReader {
     private static final int PEEKED_END_TAG = 6;
     private static final int PEEKED_TEXT = 7;
     private static final int PEEKED_EOF = 8;
+    
+    private static final int STATE_BEGIN_DOCUMENT = 0;
+    private static final int STATE_TAG = 1;
+    private static final int STATE_ATTRIBUTE = 2;
+    private static final int STATE_TEXT = 3;
+    private static final int STATE_CLOSED = 4;
 
     private boolean parseNamespaces = true;
     private boolean userDefinedEnitites = true;
@@ -45,13 +52,9 @@ public class XmlReader {
     private Buffer nextStringBuffer;
 
     private int peeked = PEEKED_NONE;
+    private int state = STATE_BEGIN_DOCUMENT;
 
-    private int[] stack = new int[32];
-    private int stackSize = 0;
-
-    {
-        stack[stackSize++] = XmlScope.EMPTY_DOCUMENT;
-    }
+    private int stackSize = 1;
 
     private String[] pathNames = new String[32];
 
@@ -105,7 +108,7 @@ public class XmlReader {
             p = doPeek();
         }
         if (p == PEEKED_BEGIN_TAG) {
-            push(XmlScope.EMPTY_TAG);
+            push();
             pathNames[stackSize - 1] = nextTag(tag);
             peeked = PEEKED_NONE;
         } else {
@@ -136,7 +139,7 @@ public class XmlReader {
 
         if (p == PEEKED_EMPTY_TAG || p == PEEKED_END_TAG) {
             pop();
-            stack[stackSize - 1] = XmlScope.NONEMPTY_DOCUMENT;
+            state = STATE_BEGIN_DOCUMENT;
             attributeSize = 0;
             peeked = PEEKED_NONE;
         } else {
@@ -329,9 +332,9 @@ public class XmlReader {
             return PEEKED_ATTRIBUTE;
         }
 
-        int peekStack = stack[stackSize - 1];
+        int state = this.state;
 
-        if (peekStack == XmlScope.EMPTY_TAG || peekStack == XmlScope.NONEMPTY_TAG) {
+        if (state == STATE_TAG) {
             int c = nextNonWhiteSpace(true);
             switch (c) {
                 case '/':
@@ -349,7 +352,7 @@ public class XmlReader {
                     }
                 case '>':
                     buffer.readByte(); // '>'
-                    stack[stackSize - 1] = XmlScope.INSIDE_TAG;
+                    this.state = STATE_TEXT;
                     break;
                 default:
                     if (parseNamespaces) {
@@ -357,7 +360,7 @@ public class XmlReader {
                         // attribute because it should be skipped if it is an xmlns declaration.
                         if (readNextAttribute(tempNamespaced)) {
                             hasLastAttribute = true;
-                            stack[stackSize - 1] = XmlScope.DANGLING_ATTRIBUTE;
+                            this.state = STATE_ATTRIBUTE;
                             return peeked = PEEKED_ATTRIBUTE;
                         } else {
                             // Normally recursion is bad, but if you are blowing the stack on xmlns
@@ -365,12 +368,12 @@ public class XmlReader {
                             return doPeek();
                         }
                     } else {
-                        stack[stackSize - 1] = XmlScope.DANGLING_ATTRIBUTE;
+                        this.state = STATE_ATTRIBUTE;
                         return peeked = PEEKED_ATTRIBUTE;
                     }
             }
-        } else if (peekStack == XmlScope.DANGLING_ATTRIBUTE) {
-            stack[stackSize - 1] = XmlScope.NONEMPTY_TAG;
+        } else if (state == STATE_ATTRIBUTE) {
+            this.state = STATE_TAG;
             int c = nextNonWhiteSpace(true);
             if (c != '=') {
                 throw syntaxError("Expected '=' but was '" + (char) c + "'");
@@ -387,14 +390,12 @@ public class XmlReader {
                 default:
                     throw syntaxError("Expected single or double quote but was " + (char) c + "'");
             }
-        } else if (peekStack == XmlScope.EMPTY_DOCUMENT) {
-            stack[stackSize - 1] = XmlScope.NONEMPTY_DOCUMENT;
-        } else if (peekStack == XmlScope.NONEMPTY_DOCUMENT) {
+        } else if (state == STATE_BEGIN_DOCUMENT) {
             int c = nextNonWhiteSpace(false);
             if (c == -1) {
                 return peeked = PEEKED_EOF;
             }
-        } else if (peekStack == XmlScope.CLOSED) {
+        } else if (state == STATE_CLOSED) {
             throw new IllegalStateException("XmlReader is closed");
         }
 
@@ -410,7 +411,7 @@ public class XmlReader {
                     return peeked = PEEKED_END_TAG;
                 } else {
                     buffer.readByte(); // '<'
-                    stack[stackSize - 1] = XmlScope.EMPTY_DOCUMENT;
+                    this.state = STATE_TAG;
                     return peeked = PEEKED_BEGIN_TAG;
                 }
             default:
@@ -418,14 +419,11 @@ public class XmlReader {
         }
     }
 
-    private void push(int newTop) {
+    private void push() {
         int stackSize = this.stackSize;
-        if (stackSize == stack.length) {
-            int[] newStack = new int[stackSize * 2];
+        if (stackSize == pathNames.length) {
             String[] newPathNames = new String[stackSize * 2];
-            System.arraycopy(stack, 0, newStack, 0, stackSize);
             System.arraycopy(pathNames, 0, newPathNames, 0, stackSize);
-            stack = newStack;
             pathNames = newPathNames;
 
             if (parseNamespaces) {
@@ -442,7 +440,7 @@ public class XmlReader {
         if (parseNamespaces) {
             defaultNamespaces[stackSize] = defaultNamespaces[stackSize - 1];
         }
-        stack[this.stackSize++] = newTop;
+        this.stackSize++;
     }
 
     private void pop() {
@@ -596,7 +594,7 @@ public class XmlReader {
                 buffer.readByte(); // ':'
                 if ("xmlns".equals(attrOrNs)) {
                     String name = readNextAttributeName();
-                    stack[stackSize - 1] = XmlScope.DANGLING_ATTRIBUTE;
+                    state = STATE_ATTRIBUTE;
                     peeked = PEEKED_NONE;
                     String value = nextValue();
                     insertNamespace(name, value);
@@ -607,7 +605,7 @@ public class XmlReader {
                 }
             } else {
                 if ("xmlns".equals(attrOrNs)) {
-                    stack[stackSize - 1] = XmlScope.DANGLING_ATTRIBUTE;
+                    state = STATE_ATTRIBUTE;
                     peeked = PEEKED_NONE;
                     String value = nextValue();
                     defaultNamespaces[stackSize - 1] = value;
