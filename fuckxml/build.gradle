@@ -1,0 +1,29 @@
+group 'me.tatarka'
+version '1.0-SNAPSHOT'
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:0.12.200'
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'kotlin'
+
+sourceCompatibility = 1.7
+
+repositories {
+    mavenCentral()
+    maven { url "http://repository.jetbrains.com/all" }
+}
+
+dependencies {
+    compile 'com.squareup.okio:okio:1.4.0'
+    compile 'com.intellij:annotations:+@jar'
+    testCompile 'org.jetbrains.kotlin:kotlin-stdlib:0.12.200'
+    testCompile 'junit:junit:4.11'
+    testCompile 'org.jetbrains.spek:spek:0.1.164'
+}

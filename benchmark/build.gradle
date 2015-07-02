@@ -1,0 +1,35 @@
+group 'me.tatarka'
+version '1.0-SNAPSHOT'
+
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:1.2.3'
+    }
+}
+
+apply plugin: 'com.android.application'
+
+sourceCompatibility = 1.7
+
+android {
+    compileSdkVersion 22
+    buildToolsVersion "22.0.1"
+
+    defaultConfig {
+        minSdkVersion 15
+        targetSdkVersion 22
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile project(':fuckxml')
+    compile 'com.android.support:appcompat-v7:22.2.0'
+    compile 'org.quanqi:android-holo-graph:0.1.0'
+}
