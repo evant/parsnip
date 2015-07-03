@@ -22,7 +22,9 @@ public class XmlReader {
     private static final ByteString TAG_OR_NAMESPACE_END_TERMINAL = ByteString.encodeUtf8(":>/ \n\t\r\f");
     private static final ByteString SINGLE_QUOTE_OR_AMP = ByteString.encodeUtf8("'&");
     private static final ByteString DOUBLE_QUOTE_OR_AMP = ByteString.encodeUtf8("\"&");
+    private static final ByteString TAG_TERMINAL = ByteString.encodeUtf8("<>");
     private static final byte TEXT_END = (byte) '<';
+    private static final byte TAG_END = (byte) '>';
     private static final byte SINGLE_QUOTE = (byte) '\'';
     private static final byte DOUBLE_QUOTE = (byte) '"';
     private static final byte ENTITY_END_TERMINAL = (byte) ';';
@@ -249,15 +251,31 @@ public class XmlReader {
             switch (doPeek()) {
                 case PEEKED_END_TAG:
                 case PEEKED_EMPTY_TAG:
+                    endTag();
                     depth--;
                     break;
                 case PEEKED_BEGIN_TAG:
+                    beginTag(null);
                     depth++;
                     break;
                 case PEEKED_EOF:
                     return;
+                default:
+                    hasLastAttribute = false;
+                    long i = source.indexOfElement(TAG_TERMINAL);
+                    if (i == -1) {
+                        peeked = PEEKED_EOF;
+                        return;
+                    }
+                    int c = buffer.getByte(i);
+                    if (c == '<') {
+                        state = STATE_DOCUMENT;
+                        buffer.skip(i);
+                    } else { // '>'
+                        state = STATE_TAG;
+                        buffer.skip(i - 1);
+                    }
             }
-            skip();
         }
     }
 
@@ -409,23 +427,40 @@ public class XmlReader {
             return peeked = PEEKED_EOF;
         }
 
-        switch (c) {
-            case '<':
-                // Need to figure out if we are starting a new tag or closing and existing one.
-                fillBuffer(2);
-                int next = buffer.getByte(1);
-                if (next == '/') {
-                    buffer.readByte(); // '<'
-                    buffer.readByte(); // '/'
-                    return peeked = PEEKED_END_TAG;
-                } else {
-                    buffer.readByte(); // '<'
-                    this.state = STATE_TAG;
-                    return peeked = PEEKED_BEGIN_TAG;
+        while (c == '<') {
+            // Need to figure out if we are:
+            // a) starting a new tag
+            // b) closing and existing tag
+            // c) starting a comment.
+            fillBuffer(2);
+            int next = buffer.getByte(1);
+
+            if (next == '!') {
+                // We got a comment, make sure it looks like one. (why are xml comments so long?)
+                fillBuffer(4);
+                c = buffer.getByte(2);
+                if (c != '-') {
+                    throw syntaxError("Expected '-' but was '" + (char) c + "'");
                 }
-            default:
-                return peeked = PEEKED_TEXT;
+                c = buffer.getByte(3);
+                if (c != '-') {
+                    throw syntaxError("Expected '-' but was '" + (char) c + "'");
+                }
+                skipTo("-->");
+                fillBuffer(4);
+                buffer.skip(3); // '-->'
+                c = buffer.getByte(0);
+            } else if (next == '/') {
+                buffer.readByte(); // '<'
+                buffer.readByte(); // '/'
+                return peeked = PEEKED_END_TAG;
+            } else {
+                buffer.readByte(); // '<'
+                this.state = STATE_TAG;
+                return peeked = PEEKED_BEGIN_TAG;
+            }
         }
+        return peeked = PEEKED_TEXT;
     }
 
     private void push() {
@@ -642,11 +677,31 @@ public class XmlReader {
         if (!name.equals(end)) {
             throw syntaxError("Mismatched tags: Expected '" + name + "' but was '" + end + "'");
         }
-        int n = nextNonWhiteSpace(true);
-        if (n != '>') {
-            throw syntaxError("Expected '>' but was '" + (char) n + "'");
+        nextWithWhitespace(TAG_END);
+    }
+
+    /**
+     * Reads up to an including the {@code terminatorByte} asserting that everything before it is
+     * whitespace.
+     */
+    private void nextWithWhitespace(byte terminatorByte) throws IOException {
+        long index = source.indexOf(terminatorByte);
+        if (index == -1) {
+            // Just complain whatever the next char is if there is one.
+            if (buffer.size() > 0) {
+                throw syntaxError("Expected '" + (char) terminatorByte + "' but was '" + (char) buffer.getByte(0) + "'");
+            } else {
+                throw syntaxError("Expected '" + (char) terminatorByte + "'");
+            }
         }
-        buffer.readByte(); // '>'
+        for (int i = 0; i < index; i++) {
+            int c = buffer.getByte(i);
+            if (c == '\n' || c == ' ' || c == '\r' || c == '\t') {
+                continue;
+            }
+            throw syntaxError("Expected '" + (char) + terminatorByte + "' but was '" + (char) c + "'");
+        }
+        buffer.skip(index + 1);
     }
 
     private int nextNonWhiteSpace(boolean throwOnEof) throws IOException {
@@ -656,37 +711,8 @@ public class XmlReader {
             if (c == '\n' || c == ' ' || c == '\r' || c == '\t') {
                 continue;
             }
-            // <!-- -->
             buffer.skip(p - 1);
-            if (c == '<') {
-                if (!fillBuffer(4)) {
-                    return c;
-                }
-                byte peek = buffer.getByte(1);
-                if (peek != '!') {
-                    return c;
-                }
-                peek = buffer.getByte(2);
-                if (peek != '-') {
-                    return c;
-                }
-                peek = buffer.getByte(3);
-                if (peek != '-') {
-                    return c;
-                }
-                // Whew! We found the start of a comment.
-                buffer.skip(4); // '<!--'
-
-                if (!skipTo("-->")) {
-                    throw syntaxError("Unterminated comment.");
-                }
-
-                buffer.skip(3); // '-->'
-
-                p = 0;
-            } else {
-                return c;
-            }
+            return c;
         }
         if (throwOnEof) {
             throw new EOFException("End of input");
@@ -694,6 +720,7 @@ public class XmlReader {
             return -1;
         }
     }
+
 
     /**
      * Returns true once {@code limit - pos >= minimum}. If the data is exhausted before that many

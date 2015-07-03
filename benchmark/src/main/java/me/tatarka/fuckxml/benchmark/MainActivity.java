@@ -26,7 +26,7 @@ public class MainActivity extends Activity {
     private static final String TAG = "MainActivity";
 
     static final int CONCURRENCY = 1;
-    static final int ITERATIONS = 20;
+    static final int ITERATIONS = 3;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,10 +69,10 @@ public class MainActivity extends Activity {
 
     public Statistics[] comparePerformance(int concurrency, int iterations) throws Exception {
         List<PerformanceTestRunner> runners = Arrays.asList(
-                newFuckXmlParserRunner(),
-                newDOMRunner(),
-                newSAXRunner(),
-                newPullParserRunner()
+                newFuckXmlParserRunner()
+//                newDOMRunner(),
+//                newSAXRunner(),
+//                newPullParserRunner()
         );
 
         // warm up and discard the first results

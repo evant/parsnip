@@ -663,7 +663,7 @@ class XmlReaderSpecs : Spek() {
                 }
 
                 it ("should throw a syntax Exception") {
-                    assertEquals("End of input", error?.getMessage())
+                    assertEquals("Expected '>' at path /test", error?.getMessage())
                 }
             }
 
