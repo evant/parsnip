@@ -101,7 +101,7 @@ class XmlReaderSpecs : Spek() {
             }
 
             on("declaration before document") {
-                val reader = xmlReader("<?xml version=\"1.1\"?> <test/>")
+                val reader = xmlReader("<?xml version=\"1.1\"?><test/>")
                 val tag = reader.beginTag()
 
                 it ("should skip the declaration and read the tag") {

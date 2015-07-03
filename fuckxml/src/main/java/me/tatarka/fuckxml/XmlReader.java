@@ -7,7 +7,6 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.util.Arrays;
 
-import jdk.nashorn.internal.runtime.regexp.joni.ast.CClassNode;
 import okio.Buffer;
 import okio.BufferedSource;
 import okio.ByteString;
@@ -37,11 +36,11 @@ public class XmlReader {
     private static final int PEEKED_END_TAG = 6;
     private static final int PEEKED_TEXT = 7;
     private static final int PEEKED_EOF = 8;
-    
-    private static final int STATE_BEGIN_DOCUMENT = 0;
-    private static final int STATE_TAG = 1;
-    private static final int STATE_ATTRIBUTE = 2;
-    private static final int STATE_TEXT = 3;
+
+    private static final int STATE_BEFORE_DOCUMENT = 0;
+    private static final int STATE_DOCUMENT = 1;
+    private static final int STATE_TAG = 2;
+    private static final int STATE_ATTRIBUTE = 3;
     private static final int STATE_CLOSED = 4;
 
     private boolean parseNamespaces = true;
@@ -52,7 +51,7 @@ public class XmlReader {
     private Buffer nextStringBuffer;
 
     private int peeked = PEEKED_NONE;
-    private int state = STATE_BEGIN_DOCUMENT;
+    private int state = STATE_BEFORE_DOCUMENT;
 
     private int stackSize = 1;
 
@@ -139,7 +138,7 @@ public class XmlReader {
 
         if (p == PEEKED_EMPTY_TAG || p == PEEKED_END_TAG) {
             pop();
-            state = STATE_BEGIN_DOCUMENT;
+            state = STATE_DOCUMENT;
             attributeSize = 0;
             peeked = PEEKED_NONE;
         } else {
@@ -352,7 +351,7 @@ public class XmlReader {
                     }
                 case '>':
                     buffer.readByte(); // '>'
-                    this.state = STATE_TEXT;
+                    this.state = STATE_DOCUMENT;
                     break;
                 default:
                     if (parseNamespaces) {
@@ -390,16 +389,26 @@ public class XmlReader {
                 default:
                     throw syntaxError("Expected single or double quote but was " + (char) c + "'");
             }
-        } else if (state == STATE_BEGIN_DOCUMENT) {
+        } else if (state == STATE_BEFORE_DOCUMENT) {
+            // Skip over declaration if it exists.
             int c = nextNonWhiteSpace(false);
-            if (c == -1) {
-                return peeked = PEEKED_EOF;
+            if (c == '<') {
+                fillBuffer(2);
+                if (buffer.getByte(1) == '?') {
+                    skipTo("?>");
+                    buffer.skip(2); // '?>'
+                }
             }
+            this.state = STATE_DOCUMENT;
         } else if (state == STATE_CLOSED) {
             throw new IllegalStateException("XmlReader is closed");
         }
 
-        int c = nextNonWhiteSpace(true);
+        int c = nextNonWhiteSpace(false);
+        if (c == -1) {
+            return peeked = PEEKED_EOF;
+        }
+
         switch (c) {
             case '<':
                 // Need to figure out if we are starting a new tag or closing and existing one.
