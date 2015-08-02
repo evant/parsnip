@@ -30,6 +30,6 @@ repositories {
 
 dependencies {
     compile project(':fuckxml')
-    compile 'com.android.support:appcompat-v7:22.2.0'
+    compile 'com.android.support:appcompat-v7:22.2.1'
     compile 'org.quanqi:android-holo-graph:0.1.0'
 }

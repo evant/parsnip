@@ -1,6 +1,5 @@
 package me.tatarka.fuckxml;
 
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.EOFException;
@@ -44,9 +43,6 @@ public class XmlReader {
     private static final int STATE_TAG = 2;
     private static final int STATE_ATTRIBUTE = 3;
     private static final int STATE_CLOSED = 4;
-
-    private boolean parseNamespaces = true;
-    private boolean userDefinedEnitites = true;
 
     private BufferedSource source;
     private Buffer buffer;
@@ -93,11 +89,6 @@ public class XmlReader {
         this.nextStringBuffer = new Buffer();
     }
 
-    public void setConfig(@NotNull Config config) {
-        this.parseNamespaces = config.parseNamespaces;
-        this.userDefinedEnitites = config.userDefinedEntities;
-    }
-
     public String beginTag() throws IOException {
         beginTag(tempNamespaced);
         return tempNamespaced.name;
@@ -117,7 +108,7 @@ public class XmlReader {
         }
     }
 
-    private String getPath() {
+    public String getPath() {
         StringBuilder path = new StringBuilder("/");
         for (int i = 1; i < stackSize; i++) {
             path.append(pathNames[i]);
@@ -372,21 +363,16 @@ public class XmlReader {
                     this.state = STATE_DOCUMENT;
                     break;
                 default:
-                    if (parseNamespaces) {
-                        // If parseNamespaces is on, we unfortunately have to eagerly read the next
-                        // attribute because it should be skipped if it is an xmlns declaration.
-                        if (readNextAttribute(tempNamespaced)) {
-                            hasLastAttribute = true;
-                            this.state = STATE_ATTRIBUTE;
-                            return peeked = PEEKED_ATTRIBUTE;
-                        } else {
-                            // Normally recursion is bad, but if you are blowing the stack on xmlns
-                            // declarations you have bigger troubles.
-                            return doPeek();
-                        }
-                    } else {
+                    // Because of namespaces, we unfortunately have to eagerly read the next
+                    // attribute because it should be skipped if it is an xmlns declaration.
+                    if (readNextAttribute(tempNamespaced)) {
+                        hasLastAttribute = true;
                         this.state = STATE_ATTRIBUTE;
                         return peeked = PEEKED_ATTRIBUTE;
+                    } else {
+                        // Normally recursion is bad, but if you are blowing the stack on xmlns
+                        // declarations you have bigger troubles.
+                        return doPeek();
                     }
             }
         } else if (state == STATE_ATTRIBUTE) {
@@ -470,20 +456,16 @@ public class XmlReader {
             System.arraycopy(pathNames, 0, newPathNames, 0, stackSize);
             pathNames = newPathNames;
 
-            if (parseNamespaces) {
-                if (shadowedNamespaces != null) {
-                    String[][] newShadowedNamespaces = new String[stackSize * 2][];
-                    System.arraycopy(shadowedNamespaces, 0, newShadowedNamespaces, 0, stackSize);
-                    shadowedNamespaces = newShadowedNamespaces;
-                }
-                String[] newDefaultNamespaces = new String[stackSize * 2];
-                System.arraycopy(defaultNamespaces, 0, newDefaultNamespaces, 0, stackSize);
-                defaultNamespaces = newDefaultNamespaces;
+            if (shadowedNamespaces != null) {
+                String[][] newShadowedNamespaces = new String[stackSize * 2][];
+                System.arraycopy(shadowedNamespaces, 0, newShadowedNamespaces, 0, stackSize);
+                shadowedNamespaces = newShadowedNamespaces;
             }
+            String[] newDefaultNamespaces = new String[stackSize * 2];
+            System.arraycopy(defaultNamespaces, 0, newDefaultNamespaces, 0, stackSize);
+            defaultNamespaces = newDefaultNamespaces;
         }
-        if (parseNamespaces) {
-            defaultNamespaces[stackSize] = defaultNamespaces[stackSize - 1];
-        }
+        defaultNamespaces[stackSize] = defaultNamespaces[stackSize - 1];
         this.stackSize++;
     }
 
@@ -491,7 +473,7 @@ public class XmlReader {
         stackSize--;
         int stackSize = this.stackSize;
         pathNames[stackSize] = null;
-        if (parseNamespaces && stackSize > 1) {
+        if (stackSize > 1) {
             int namespaceSize = this.namespaceSize;
             int removeCount = 0;
             for (int i = namespaceSize - 1; i >= 0; i--) {
@@ -592,7 +574,7 @@ public class XmlReader {
     private String nextTag(@Nullable Namespaced tag) throws IOException {
         // There may be space between the opening and the tag.
         nextNonWhiteSpace(true);
-        if (tag != null && parseNamespaces) {
+        if (tag != null) {
             long i = source.indexOfElement(TAG_OR_NAMESPACE_END_TERMINAL);
             String tagOrNs = i != -1 ? buffer.readUtf8(i) : buffer.readUtf8();
             fillBuffer(1);
@@ -608,12 +590,7 @@ public class XmlReader {
                 return tagOrNs;
             }
         } else {
-            String name = readNextTagName();
-            if (tag != null) {
-                tag.namespace = null;
-                tag.name = name;
-            }
-            return name;
+            return readNextTagName();
         }
     }
 
@@ -629,39 +606,34 @@ public class XmlReader {
      * declaration. In that case, the attribute should be skipped and not given to the client.
      */
     private boolean readNextAttribute(Namespaced attribute) throws IOException {
-        if (parseNamespaces) {
-            long i = source.indexOfElement(ATTRIBUTE_OR_NAMESPACE_END_TERMINAL);
-            String attrOrNs = i != -1 ? buffer.readUtf8(i) : buffer.readUtf8();
-            fillBuffer(1);
-            int n = buffer.getByte(0);
-            if (n == ':') {
-                buffer.readByte(); // ':'
-                if ("xmlns".equals(attrOrNs)) {
-                    String name = readNextAttributeName();
-                    state = STATE_ATTRIBUTE;
-                    peeked = PEEKED_NONE;
-                    String value = nextValue();
-                    insertNamespace(name, value);
-                    return false;
-                } else {
-                    attribute.namespace = namespaceValue(attrOrNs);
-                    attribute.name = readNextAttributeName();
-                }
+        long i = source.indexOfElement(ATTRIBUTE_OR_NAMESPACE_END_TERMINAL);
+        String attrOrNs = i != -1 ? buffer.readUtf8(i) : buffer.readUtf8();
+        fillBuffer(1);
+        int n = buffer.getByte(0);
+        if (n == ':') {
+            buffer.readByte(); // ':'
+            if ("xmlns".equals(attrOrNs)) {
+                String name = readNextAttributeName();
+                state = STATE_ATTRIBUTE;
+                peeked = PEEKED_NONE;
+                String value = nextValue();
+                insertNamespace(name, value);
+                return false;
             } else {
-                if ("xmlns".equals(attrOrNs)) {
-                    state = STATE_ATTRIBUTE;
-                    peeked = PEEKED_NONE;
-                    String value = nextValue();
-                    defaultNamespaces[stackSize - 1] = value;
-                    return false;
-                } else {
-                    attribute.namespace = defaultNamespaces[stackSize - 1];
-                    attribute.name = attrOrNs;
-                }
+                attribute.namespace = namespaceValue(attrOrNs);
+                attribute.name = readNextAttributeName();
             }
         } else {
-            attribute.namespace = null;
-            attribute.name = readNextAttributeName();
+            if ("xmlns".equals(attrOrNs)) {
+                state = STATE_ATTRIBUTE;
+                peeked = PEEKED_NONE;
+                String value = nextValue();
+                defaultNamespaces[stackSize - 1] = value;
+                return false;
+            } else {
+                attribute.namespace = defaultNamespaces[stackSize - 1];
+                attribute.name = attrOrNs;
+            }
         }
         return true;
     }
@@ -699,7 +671,7 @@ public class XmlReader {
             if (c == '\n' || c == ' ' || c == '\r' || c == '\t') {
                 continue;
             }
-            throw syntaxError("Expected '" + (char) + terminatorByte + "' but was '" + (char) c + "'");
+            throw syntaxError("Expected '" + (char) +terminatorByte + "' but was '" + (char) c + "'");
         }
         buffer.skip(index + 1);
     }
@@ -894,20 +866,5 @@ public class XmlReader {
         TEXT,
         END_TAG,
         END_DOCUMENT
-    }
-
-    public static class Config {
-        private boolean parseNamespaces = true;
-        private boolean userDefinedEntities = true;
-
-        public Config parseNamespaces(boolean parseNamespaces) {
-            this.parseNamespaces = parseNamespaces;
-            return this;
-        }
-
-        public Config userDefinedEntities(boolean userDefinedEntities) {
-            this.userDefinedEntities = userDefinedEntities;
-            return this;
-        }
     }
 }
