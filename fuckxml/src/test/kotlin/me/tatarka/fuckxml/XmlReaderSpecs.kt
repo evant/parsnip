@@ -4,11 +4,9 @@ import okio.Buffer
 import org.jetbrains.spek.api.Spek
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
 import kotlin.test.fails
 
-/**
- * Created by evan on 6/19/15.
- */
 class XmlReaderSpecs : Spek() {
     init {
         given("an XmlReader") {
@@ -195,31 +193,39 @@ class XmlReaderSpecs : Spek() {
             on("a tag with a namespaced name") {
                 val reader = xmlReader("<test1 xmlns:ns='foo'><ns:test2/></test1>")
                 reader.beginTag()
-                val tag = Namespaced()
-                reader.beginTag(tag)
+                val namespace = Namespace()
+                val tag = reader.beginTag(namespace)
                 
                 it ("should read the tag name") {
-                    assertEquals("test2", tag.name)
+                    assertEquals("test2", tag)
                 }
                 
                 it ("should read the tag namespace") {
-                    assertEquals("foo", tag.namespace)
+                    assertEquals("foo", namespace.namespace)
+                }
+
+                it ("should read the namespace alias") {
+                    assertEquals("ns", namespace.alias)
                 }
             }
 
             on("a tag with a namespaced attribute") {
                 val reader = xmlReader("<test xmlns:ns='foo' ns:attribute='value'/>")
                 reader.beginTag()
-                val attribute = Namespaced()
-                reader.nextAttribute(attribute)
+                val namespace = Namespace()
+                val attribute = reader.nextAttribute(namespace)
                 val value = reader.nextValue()
 
                 it ("should read the attribute") {
-                    assertEquals("attribute", attribute.name)
+                    assertEquals("attribute", attribute)
                 }
 
                 it ("should read the attribute namespace") {
-                    assertEquals("foo", attribute.namespace)
+                    assertEquals("foo", namespace.namespace)
+                }
+
+                it ("should read the namespace alias") {
+                    assertEquals("ns", namespace.alias)
                 }
 
                 it ("should read the value") {
@@ -231,16 +237,20 @@ class XmlReaderSpecs : Spek() {
                 val reader = xmlReader("<test1 xmlns:ns='foo'><test2 xmlns:ns='bar' ns:attribute='value'/></test1>")
                 reader.beginTag()
                 reader.beginTag()
-                val attribute = Namespaced()
-                reader.nextAttribute(attribute)
+                val namespace = Namespace()
+                val attribute = reader.nextAttribute(namespace)
                 val value = reader.nextValue()
 
                 it ("should read the attribute") {
-                    assertEquals("attribute", attribute.name)
+                    assertEquals("attribute", attribute)
                 }
 
                 it ("should read the attribute namespace") {
-                    assertEquals("bar", attribute.namespace)
+                    assertEquals("bar", namespace.namespace)
+                }
+
+                it ("should read the namespace alias") {
+                    assertEquals("ns", namespace.alias)
                 }
 
                 it ("should read the value") {
@@ -254,16 +264,16 @@ class XmlReaderSpecs : Spek() {
                 reader.beginTag()
                 reader.endTag()
                 reader.beginTag()
-                val attribute = Namespaced()
-                reader.nextAttribute(attribute)
+                val namespace = Namespace()
+                val attribute = reader.nextAttribute(namespace)
                 val value = reader.nextValue()
 
                 it ("should read the attribute") {
-                    assertEquals("attribute", attribute.name)
+                    assertEquals("attribute", attribute)
                 }
 
                 it ("should not read the attribute namespace of the other tag") {
-                    assertNotEquals("foo", attribute.namespace)
+                    assertNotEquals("foo", namespace.namespace)
                 }
 
                 it ("should read the value") {
@@ -274,30 +284,38 @@ class XmlReaderSpecs : Spek() {
             on("a tag with a default namespace declaration") {
                 val reader = xmlReader("<test1 xmlns='foo'><test2/></test1>")
                 reader.beginTag()
-                val tag = Namespaced()
-                reader.beginTag(tag)
+                val namespace = Namespace()
+                val tag = reader.beginTag(namespace)
 
                 it ("should read the tag name") {
-                    assertEquals("test2", tag.name)
+                    assertEquals("test2", tag)
                 }
 
                 it ("should have the default namespace") {
-                    assertEquals("foo", tag.namespace)
+                    assertEquals("foo", namespace.namespace)
+                }
+
+                it ("should have no alias") {
+                    assertNull(namespace.alias)
                 }
             }
 
             on("an attribute on a tag with a default namespace declaration") {
                 val reader = xmlReader("<test xmlns='foo' attribute='value'/>")
                 reader.beginTag()
-                val attribute = Namespaced()
-                reader.nextAttribute(attribute)
+                val namespace = Namespace()
+                val attribute = reader.nextAttribute(namespace)
 
                 it ("should read the attribute") {
-                    assertEquals("attribute", attribute.name)
+                    assertEquals("attribute", attribute)
                 }
 
                 it ("should have the default namespace") {
-                    assertEquals("foo", attribute.namespace)
+                    assertEquals("foo", namespace.namespace)
+                }
+
+                it ("should have no alias") {
+                    assertNull(namespace.alias)
                 }
             }
 
@@ -316,7 +334,7 @@ class XmlReaderSpecs : Spek() {
             on("built-in entity in value") {
                 val reader = xmlReader("<test attribute='&quot;&apos;&lt;&gt;&amp;'/>")
                 reader.beginTag()
-                reader.nextAttribute(Namespaced())
+                reader.nextAttribute(Namespace())
                 val value = reader.nextValue()
 
                 it ("should expand the entities in value") {
@@ -463,7 +481,7 @@ class XmlReaderSpecs : Spek() {
                     val token1 = reader.peek()
                     reader.beginTag()
                     val token2 = reader.peek()
-                    reader.nextAttribute(Namespaced())
+                    reader.nextAttribute(Namespace())
                     val token3 = reader.peek()
                     reader.nextValue()
                     val token4 = reader.peek()
@@ -693,7 +711,7 @@ class XmlReaderSpecs : Spek() {
 
             on("a incorrectly duplicated attribute") {
                 val reader = xmlReader("<test attribute='value1' attribute='value2/>")
-                val attribute = Namespaced()
+                val attribute = Namespace()
                 reader.beginTag()
                 reader.nextAttribute(attribute)
                 reader.nextValue()

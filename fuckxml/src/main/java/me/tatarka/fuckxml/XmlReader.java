@@ -10,9 +10,6 @@ import okio.Buffer;
 import okio.BufferedSource;
 import okio.ByteString;
 
-/**
- * Created by evan on 6/15/15.
- */
 public class XmlReader {
     private static final ByteString TAG_START_TERMINALS = ByteString.encodeUtf8(">/ \n\t\r\f");
     private static final ByteString TEXT_END_TERMINAL = ByteString.encodeUtf8("&<");
@@ -77,8 +74,8 @@ public class XmlReader {
     private int namespaceSize = 0;
     // We have to eagerly parse the next attribute in order to skip xmlns declarations,
     // therefore we should save what it was.
-    private Namespaced tempNamespaced = new Namespaced();
-    private boolean hasLastAttribute;
+    private String lastAttribute = null;
+    private Namespace tempNamespace = new Namespace();
 
     public XmlReader(BufferedSource source) {
         if (source == null) {
@@ -90,19 +87,20 @@ public class XmlReader {
     }
 
     public String beginTag() throws IOException {
-        beginTag(tempNamespaced);
-        return tempNamespaced.name;
+        return beginTag(tempNamespace);
     }
 
-    public void beginTag(@Nullable Namespaced tag) throws IOException {
+    public String beginTag(Namespace namespace) throws IOException {
         int p = peeked;
         if (p == PEEKED_NONE) {
             p = doPeek();
         }
         if (p == PEEKED_BEGIN_TAG) {
             push();
-            pathNames[stackSize - 1] = nextTag(tag);
+            String tag = nextTag(namespace);
+            pathNames[stackSize - 1] = namespace.alias == null ? tag : namespace.alias + ":" + tag;
             peeked = PEEKED_NONE;
+            return tag;
         } else {
             throw new XmlDataException("Expected BEGIN_TAG but was " + peek() + " at path " + getPath());
         }
@@ -116,7 +114,7 @@ public class XmlReader {
                 path.append("/");
             }
         }
-        return path.toString(); //TODO: construct XPath
+        return path.toString();
     }
 
     public void endTag() throws IOException {
@@ -140,37 +138,39 @@ public class XmlReader {
     }
 
     public String nextAttribute() throws IOException {
-        nextAttribute(tempNamespaced);
-        return tempNamespaced.name;
+        return nextAttribute(tempNamespace);
     }
 
-    public void nextAttribute(Namespaced attribute) throws IOException {
+    public String nextAttribute(Namespace namespace) throws IOException {
         int p = peeked;
         if (p == PEEKED_NONE) {
             p = doPeek();
         }
 
         if (p == PEEKED_ATTRIBUTE) {
-            if (hasLastAttribute) {
-                attribute.namespace = tempNamespaced.namespace;
-                attribute.name = tempNamespaced.name;
-                hasLastAttribute = false;
+            String attribute;
+            if (lastAttribute != null) {
+                namespace.namespace = tempNamespace.namespace;
+                namespace.alias = tempNamespace.alias;
+                attribute = lastAttribute;
+                lastAttribute = null;
             } else {
                 // We must skip any xmlns attributes
-                while (!readNextAttribute(attribute)) ;
+                do {
+                    attribute = readNextAttribute(namespace);
+                } while (attribute == null);
             }
 
             int attributeSize = this.attributeSize;
-            boolean hasNamespace = attribute.namespace != null;
 
             for (int i = 0; i < attributeSize; i++) {
                 String name = attributeNames[i];
-                if (attribute.name.equals(name)) {
-                    if (!hasNamespace) {
+                if (attribute.equals(name)) {
+                    if (namespace.namespace == null) {
                         throw new XmlDataException("Duplicate attribute '" + name + "' at path " + getPath());
                     } else {
-                        String namespace = attributeNamespaces[i];
-                        if (attribute.namespace.equals(namespace)) {
+                        String namespaceName = attributeNamespaces[i];
+                        if (namespace.namespace.equals(namespaceName)) {
                             throw new XmlDataException("Duplicate attribute '{" + namespace + "}" + name + "' at path " + getPath());
                         }
                     }
@@ -186,11 +186,12 @@ public class XmlReader {
                 attributeNamespaces = newAttributeNamespaces;
             }
 
-            attributeNames[attributeSize] = attribute.name;
-            attributeNamespaces[attributeSize] = attribute.namespace;
+            attributeNames[attributeSize] = attribute;
+            attributeNamespaces[attributeSize] = namespace.namespace;
             this.attributeSize++;
 
             peeked = PEEKED_NONE;
+            return attribute;
         } else {
             throw new XmlDataException("Expected ATTRIBUTE but was " + peek() + " at path " + getPath());
         }
@@ -246,13 +247,13 @@ public class XmlReader {
                     depth--;
                     break;
                 case PEEKED_BEGIN_TAG:
-                    beginTag(null);
+                    beginTag(tempNamespace);
                     depth++;
                     break;
                 case PEEKED_EOF:
                     return;
                 default:
-                    hasLastAttribute = false;
+                    lastAttribute = null;
                     long i = source.indexOfElement(TAG_TERMINAL);
                     if (i == -1) {
                         peeked = PEEKED_EOF;
@@ -280,7 +281,7 @@ public class XmlReader {
         }
         switch (p) {
             case PEEKED_BEGIN_TAG:
-                beginTag(null);
+                beginTag(tempNamespace);
                 break;
             case PEEKED_EMPTY_TAG:
             case PEEKED_END_TAG:
@@ -336,7 +337,7 @@ public class XmlReader {
     }
 
     private int doPeek() throws IOException {
-        if (hasLastAttribute) {
+        if (lastAttribute != null) {
             return PEEKED_ATTRIBUTE;
         }
 
@@ -365,8 +366,9 @@ public class XmlReader {
                 default:
                     // Because of namespaces, we unfortunately have to eagerly read the next
                     // attribute because it should be skipped if it is an xmlns declaration.
-                    if (readNextAttribute(tempNamespaced)) {
-                        hasLastAttribute = true;
+                    String attribute = readNextAttribute(tempNamespace);
+                    if (attribute != null) {
+                        lastAttribute = attribute;
                         this.state = STATE_ATTRIBUTE;
                         return peeked = PEEKED_ATTRIBUTE;
                     } else {
@@ -568,29 +570,24 @@ public class XmlReader {
     }
 
     /**
-     * Fills the given tag with the next tag's namespaced and name. Returns the unprocessed tag so
-     * it can be stored for end-tag validation.
+     * Returns the next tag and fills the given namespace.
      */
-    private String nextTag(@Nullable Namespaced tag) throws IOException {
+    private String nextTag(Namespace namespace) throws IOException {
         // There may be space between the opening and the tag.
         nextNonWhiteSpace(true);
-        if (tag != null) {
-            long i = source.indexOfElement(TAG_OR_NAMESPACE_END_TERMINAL);
-            String tagOrNs = i != -1 ? buffer.readUtf8(i) : buffer.readUtf8();
-            fillBuffer(1);
-            int n = buffer.getByte(0);
-            if (n == ':') {
-                buffer.readByte(); // ':'
-                tag.namespace = namespaceValue(tagOrNs);
-                tag.name = readNextTagName();
-                return tagOrNs + ":" + tag.name;
-            } else {
-                tag.namespace = defaultNamespaces[stackSize - 1];
-                tag.name = tagOrNs;
-                return tagOrNs;
-            }
-        } else {
+        long i = source.indexOfElement(TAG_OR_NAMESPACE_END_TERMINAL);
+        String tagOrNs = i != -1 ? buffer.readUtf8(i) : buffer.readUtf8();
+        fillBuffer(1);
+        int n = buffer.getByte(0);
+        if (n == ':') {
+            buffer.readByte(); // ':'
+            namespace.alias = tagOrNs;
+            namespace.namespace = namespaceValue(tagOrNs);
             return readNextTagName();
+        } else {
+            namespace.alias = null;
+            namespace.namespace = defaultNamespaces[stackSize - 1];
+            return tagOrNs;
         }
     }
 
@@ -600,12 +597,11 @@ public class XmlReader {
     }
 
     /**
-     * Reads the attribute into the given attribute object. If parseNamespaces is true, this will
-     * fill the namespace and name, otherwise just name will be filled. Since declaring namespaces
-     * are attributes themselves, this method may return false if it is parsing an xmlns
-     * declaration. In that case, the attribute should be skipped and not given to the client.
+     * Reads the next attribute and it's namespace if not null. Since declaring namespaces are
+     * attributes themselves, this method may return null if it is parsing an xmlns declaration. In
+     * that case, the attribute should be skipped and not given to the client.
      */
-    private boolean readNextAttribute(Namespaced attribute) throws IOException {
+    private String readNextAttribute(Namespace namespace) throws IOException {
         long i = source.indexOfElement(ATTRIBUTE_OR_NAMESPACE_END_TERMINAL);
         String attrOrNs = i != -1 ? buffer.readUtf8(i) : buffer.readUtf8();
         fillBuffer(1);
@@ -618,10 +614,13 @@ public class XmlReader {
                 peeked = PEEKED_NONE;
                 String value = nextValue();
                 insertNamespace(name, value);
-                return false;
+                return null;
             } else {
-                attribute.namespace = namespaceValue(attrOrNs);
-                attribute.name = readNextAttributeName();
+                if (namespace != null) {
+                    namespace.alias = attrOrNs;
+                    namespace.namespace = namespaceValue(attrOrNs);
+                }
+                return readNextAttributeName();
             }
         } else {
             if ("xmlns".equals(attrOrNs)) {
@@ -629,13 +628,15 @@ public class XmlReader {
                 peeked = PEEKED_NONE;
                 String value = nextValue();
                 defaultNamespaces[stackSize - 1] = value;
-                return false;
+                return null;
             } else {
-                attribute.namespace = defaultNamespaces[stackSize - 1];
-                attribute.name = attrOrNs;
+                if (namespace != null) {
+                    namespace.alias = null;
+                    namespace.namespace = defaultNamespaces[stackSize - 1];
+                }
+                return attrOrNs;
             }
         }
-        return true;
     }
 
     private String readNextAttributeName() throws IOException {
