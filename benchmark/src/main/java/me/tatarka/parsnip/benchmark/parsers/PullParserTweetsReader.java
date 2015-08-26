@@ -9,6 +9,8 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Locale;
 
+import me.tatarka.parsnip.TypeConverter;
+import me.tatarka.parsnip.benchmark.PerformanceTestRunner;
 import me.tatarka.parsnip.benchmark.TweetsReader;
 import me.tatarka.parsnip.benchmark.model.Author;
 import me.tatarka.parsnip.benchmark.model.Content;
@@ -16,6 +18,17 @@ import me.tatarka.parsnip.benchmark.model.entry;
 import me.tatarka.parsnip.benchmark.model.feed;
 
 public class PullParserTweetsReader implements TweetsReader {
+    public static final PerformanceTestRunner.TweetsReaderFactory FACTORY = new PerformanceTestRunner.TweetsReaderFactory() {
+        @Override
+        public String getParserType() {
+            return "Pull";
+        }
+
+        @Override
+        public TweetsReader newReader() throws Exception {
+            return new PullParserTweetsReader();
+        }
+    };
 
     private DateFormat dateFormat;
     private XmlPullParserFactory f;

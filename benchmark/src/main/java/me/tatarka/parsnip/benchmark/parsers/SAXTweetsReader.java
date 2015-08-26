@@ -1,5 +1,6 @@
 package me.tatarka.parsnip.benchmark.parsers;
 
+import me.tatarka.parsnip.benchmark.PerformanceTestRunner;
 import me.tatarka.parsnip.benchmark.TweetsReader;
 import me.tatarka.parsnip.benchmark.model.Author;
 import me.tatarka.parsnip.benchmark.model.Content;
@@ -22,6 +23,17 @@ import java.util.ArrayList;
 import java.util.Locale;
 
 public class SAXTweetsReader implements TweetsReader {
+    public static final PerformanceTestRunner.TweetsReaderFactory FACTORY = new PerformanceTestRunner.TweetsReaderFactory() {
+        @Override
+        public String getParserType() {
+            return "SAX";
+        }
+
+        @Override
+        public TweetsReader newReader() throws Exception {
+            return new SAXTweetsReader();
+        }
+    };
 
     private XMLReader reader;
     private TweetsHandler handler;

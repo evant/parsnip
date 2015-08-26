@@ -10,11 +10,24 @@ import me.tatarka.parsnip.TypeConverter;
 import me.tatarka.parsnip.Xml;
 import me.tatarka.parsnip.XmlAdapter;
 import me.tatarka.parsnip.XmlDataException;
+import me.tatarka.parsnip.benchmark.PerformanceTestRunner;
 import me.tatarka.parsnip.benchmark.TweetsReader;
 import me.tatarka.parsnip.benchmark.model.feed;
 import okio.Okio;
 
 public class ParsnipReflectionTweetsReader implements TweetsReader {
+    public static final PerformanceTestRunner.TweetsReaderFactory FACTORY = new PerformanceTestRunner.TweetsReaderFactory() {
+        @Override
+        public String getParserType() {
+            return "Parsnip Reflection";
+        }
+
+        @Override
+        public TweetsReader newReader() throws Exception {
+            return new ParsnipReflectionTweetsReader();
+        }
+    };
+    
     private Xml xml = new Xml.Builder().add(Date.class, new DateTypeConverter()).build();
 
     @Override

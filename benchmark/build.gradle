@@ -27,14 +27,16 @@ android {
 repositories {
     mavenCentral()
 }
+configurations {
+    // These are packaged in android
+    all*.exclude module:'stax'
+    all*.exclude module:'stax-api'
+    all*.exclude module:'xpp3'
+}
 
 dependencies {
     compile project(':parsnip')
     compile 'com.android.support:appcompat-v7:23.0.0'
     compile 'org.quanqi:android-holo-graph:0.1.0'
-    compile('org.simpleframework:simple-xml:2.7.1') {
-        exclude module: 'stax'
-        exclude module: 'stax-api'
-        exclude module: 'xpp3'
-    }
+    compile 'org.simpleframework:simple-xml:2.7.1'
 }

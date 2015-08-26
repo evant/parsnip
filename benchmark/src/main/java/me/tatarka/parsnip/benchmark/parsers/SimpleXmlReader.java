@@ -10,12 +10,25 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
+import me.tatarka.parsnip.benchmark.PerformanceTestRunner;
 import me.tatarka.parsnip.benchmark.TweetsReader;
 import me.tatarka.parsnip.benchmark.model.feed;
 
 public class SimpleXmlReader implements TweetsReader {
+    public static final PerformanceTestRunner.TweetsReaderFactory FACTORY = new PerformanceTestRunner.TweetsReaderFactory() {
+        @Override
+        public String getParserType() {
+            return "Simple";
+        }
+
+        @Override
+        public TweetsReader newReader() throws Exception {
+            return new SimpleXmlReader();
+        }
+    };
+
     private Serializer serializer;
-    
+
     public SimpleXmlReader() {
         RegistryMatcher m = new RegistryMatcher();
         m.bind(Date.class, new DateFormatTransformer());

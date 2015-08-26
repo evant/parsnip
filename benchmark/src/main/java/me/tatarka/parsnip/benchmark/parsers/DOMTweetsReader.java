@@ -1,5 +1,6 @@
 package me.tatarka.parsnip.benchmark.parsers;
 
+import me.tatarka.parsnip.benchmark.PerformanceTestRunner;
 import me.tatarka.parsnip.benchmark.TweetsReader;
 import me.tatarka.parsnip.benchmark.model.Author;
 import me.tatarka.parsnip.benchmark.model.Content;
@@ -19,6 +20,18 @@ import java.util.ArrayList;
 import java.util.Locale;
 
 public class DOMTweetsReader implements TweetsReader {
+    
+    public static final PerformanceTestRunner.TweetsReaderFactory FACTORY = new PerformanceTestRunner.TweetsReaderFactory() {
+        @Override
+        public String getParserType() {
+            return "W3C DOM";
+        }
+
+        @Override
+        public TweetsReader newReader() throws Exception {
+            return new DOMTweetsReader();
+        }
+    };
 
     private DocumentBuilder builder;
     private DateFormat dateFormat;

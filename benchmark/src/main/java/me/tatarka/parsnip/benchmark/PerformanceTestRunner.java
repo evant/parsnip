@@ -4,13 +4,22 @@ import android.content.res.AssetManager;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CyclicBarrier;
 
 public class PerformanceTestRunner {
     private static final String TAG = "TestRunner";
+    
+    public static List<PerformanceTestRunner> of(TweetsReaderFactory...factories) {
+        List<PerformanceTestRunner> runners = new ArrayList<>(factories.length);
+        for (TweetsReaderFactory factory : factories) {
+            runners.add(new PerformanceTestRunner(factory));
+        }
+        return Collections.unmodifiableList(runners);
+    }
 
-    interface TweetsReaderFactory {
+    public interface TweetsReaderFactory {
         String getParserType();
 
         TweetsReader newReader() throws Exception;

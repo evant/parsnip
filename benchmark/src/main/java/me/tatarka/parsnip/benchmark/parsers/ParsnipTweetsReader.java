@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Locale;
 
 import me.tatarka.parsnip.XmlReader;
+import me.tatarka.parsnip.benchmark.PerformanceTestRunner;
 import me.tatarka.parsnip.benchmark.TweetsReader;
 import me.tatarka.parsnip.benchmark.model.Author;
 import me.tatarka.parsnip.benchmark.model.Content;
@@ -15,6 +16,18 @@ import me.tatarka.parsnip.benchmark.model.feed;
 import okio.Okio;
 
 public class ParsnipTweetsReader implements TweetsReader {
+    public static final PerformanceTestRunner.TweetsReaderFactory FACTORY = new PerformanceTestRunner.TweetsReaderFactory() {
+        @Override
+        public String getParserType() {
+            return "Parsnip";
+        }
+
+        @Override
+        public TweetsReader newReader() throws Exception {
+            return new ParsnipTweetsReader();
+        }
+    };
+    
     private DateFormat dateFormat;
 
     public ParsnipTweetsReader() {

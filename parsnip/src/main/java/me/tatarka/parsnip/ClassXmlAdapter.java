@@ -24,7 +24,8 @@ final class ClassXmlAdapter<T> extends me.tatarka.parsnip.XmlAdapter<T> {
         @Override
         public me.tatarka.parsnip.XmlAdapter<?> create(Type type, Set<? extends Annotation> annotations, XmlAdapters adapters) {
             Class<?> rawType = Types.getRawType(type);
-            if (rawType.isInterface() || rawType.isEnum() || isPlatformType(rawType) || rawType.isPrimitive()) return null;
+            if (rawType.isInterface() || rawType.isEnum() || isPlatformType(rawType) || rawType.isPrimitive())
+                return null;
             if (!annotations.isEmpty()) return null;
 
             if (rawType.getEnclosingClass() != null && !Modifier.isStatic(rawType.getModifiers())) {
@@ -164,36 +165,41 @@ final class ClassXmlAdapter<T> extends me.tatarka.parsnip.XmlAdapter<T> {
         try {
             me.tatarka.parsnip.XmlReader.Token token = reader.peek();
             while (token != me.tatarka.parsnip.XmlReader.Token.END_TAG) {
-                String name;
                 switch (token) {
                     case ATTRIBUTE: {
-                        name = reader.nextAttribute();
+                        String name = reader.nextAttribute();
+                        FieldBinding fieldBinding = fields.get(name);
+                        if (fieldBinding != null) {
+                            fieldBinding.read(reader, result);
+                        } else {
+                            reader.skip();
+                        }
                         break;
                     }
                     case TEXT: {
-                        name = TEXT;
+                        String name = TEXT;
+                        FieldBinding fieldBinding = fields.get(name);
+                        if (fieldBinding != null) {
+                            fieldBinding.read(reader, result);
+                        } else {
+                            reader.skip();
+                        }
                         break;
                     }
                     case BEGIN_TAG: {
-                        name = reader.beginTag();
+                        String name = reader.beginTag();
+                        FieldBinding fieldBinding = fields.get(name);
+                        if (fieldBinding != null) {
+                            fieldBinding.read(reader, result);
+                        } else {
+                            reader.skipTag();
+                        }
                         break;
                     }
                     case END_DOCUMENT: {
                         throw new me.tatarka.parsnip.XmlDataException("Unexpected end of document");
                     }
-                    default:
-                        name = null;
                 }
-
-                if (name != null) {
-                    FieldBinding fieldBinding = fields.get(name);
-                    if (fieldBinding != null) {
-                        fieldBinding.read(reader, result);
-                    } else {
-                        reader.skipTag();
-                    }
-                }
-                
                 token = reader.peek();
             }
         } catch (IllegalAccessException e) {
@@ -227,7 +233,7 @@ final class ClassXmlAdapter<T> extends me.tatarka.parsnip.XmlAdapter<T> {
         }
 
         @SuppressWarnings("unchecked")
-        // We require that field's values are of type T.
+            // We require that field's values are of type T.
         void write(XmlWriter writer, Object value) throws IllegalAccessException, IOException {
             T fieldValue = (T) field.get(value);
             writeValue(writer, fieldValue);
