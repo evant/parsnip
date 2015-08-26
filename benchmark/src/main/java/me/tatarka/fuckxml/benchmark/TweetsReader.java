@@ -1,11 +1,9 @@
 package me.tatarka.fuckxml.benchmark;
 
-import me.tatarka.fuckxml.benchmark.model.Tweets;
-
 import java.io.InputStream;
 
-public interface TweetsReader {
-    String getParserName();
+import me.tatarka.fuckxml.benchmark.model.feed;
 
-    Tweets read(InputStream stream) throws Exception;
+public interface TweetsReader {
+    feed read(InputStream stream) throws Exception;
 }

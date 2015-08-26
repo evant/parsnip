@@ -50,11 +50,7 @@ public class XmlWriter implements Closeable, Flushable {
      */
     private String indent;
     private char quote = '"';
-
-    /**
-     * The attribute name/value separator.
-     */
-    private final String separator = "=";
+    private String deferredName;
 
     public XmlWriter(BufferedSink sink) {
         if (sink == null) {
@@ -106,7 +102,8 @@ public class XmlWriter implements Closeable, Flushable {
      * Begins encoding a new xml tag. Each call to this method must be paired with a call to {@link
      * #endTag()}.
      *
-     * @param namespace the namespace for the tag, created by {@link #namespace(Namespace, String, String)}, may be null.
+     * @param namespace the namespace for the tag, created by {@link #namespace(Namespace, String,
+     *                  String)}, may be null.
      * @param name      the name of the tag, must not be null.
      * @return this writer.
      */
@@ -162,20 +159,27 @@ public class XmlWriter implements Closeable, Flushable {
      * Encodes the attribute name. Each call to this method must be paired with {@link
      * #value(String)}.
      *
-     * @param namespace the namespace for the tag, created by {@link #namespace(Namespace, String, String)}, may be null.
+     * @param namespace the namespace for the tag, created by {@link #namespace(Namespace, String,
+     *                  String)}, may be null.
      * @param name      the name of the attribute, must not be null.
      * @return this writer.
      */
     public XmlWriter name(Namespace namespace, String name) throws IOException {
-        String fullName = namespace != null ? namespace.alias + ":" + name : name;
         if (state != STATE_TAG) {
             throw new IllegalStateException();
         }
         state = STATE_ATTRIBUTE;
-        sink.writeByte(' ');
-        sink.writeUtf8(fullName);
-        sink.writeByte('=');
+        deferredName = namespace != null ? namespace.alias + ":" + name : name;
         return this;
+    }
+
+    private void writeDeferredName() throws IOException {
+        if (deferredName != null) {
+            sink.writeByte(' ');
+            sink.writeUtf8(deferredName);
+            sink.writeByte('=');
+            deferredName = null;
+        }
     }
 
     /**
@@ -189,8 +193,14 @@ public class XmlWriter implements Closeable, Flushable {
             throw new IllegalStateException();
         }
         state = STATE_TAG;
+        if (value == null) {
+            // skip this name and value
+            deferredName = null;
+            return this;
+        }
+        writeDeferredName();
         sink.writeByte(quote);
-        sink.writeUtf8(value);
+        string(value);
         sink.writeByte(quote);
         return this;
     }
@@ -207,7 +217,7 @@ public class XmlWriter implements Closeable, Flushable {
         }
         afterBeginTag();
         state = STATE_TEXT;
-        sink.writeUtf8(text);
+        string(text);
         return this;
     }
 
@@ -294,5 +304,31 @@ public class XmlWriter implements Closeable, Flushable {
         }
         pathNames[stackSize] = name;
         this.stackSize++;
+    }
+
+    private void string(String value) throws IOException {
+        String[] replacements = REPLACEMENT_CHARS;
+        int last = 0;
+        int length = value.length();
+        for (int i = 0; i < length; i++) {
+            char c = value.charAt(i);
+            String replacement;
+            if (c < 128) {
+                replacement = replacements[c];
+                if (replacement == null) {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+            if (last < i) {
+                sink.writeUtf8(value, last, i);
+            }
+            sink.writeUtf8(replacement);
+            last = i + 1;
+        }
+        if (last < length) {
+            sink.writeUtf8(value, last, length);
+        }
     }
 }

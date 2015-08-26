@@ -3,8 +3,8 @@ package me.tatarka.fuckxml.benchmark.parsers;
 import me.tatarka.fuckxml.benchmark.TweetsReader;
 import me.tatarka.fuckxml.benchmark.model.Author;
 import me.tatarka.fuckxml.benchmark.model.Content;
-import me.tatarka.fuckxml.benchmark.model.Tweet;
-import me.tatarka.fuckxml.benchmark.model.Tweets;
+import me.tatarka.fuckxml.benchmark.model.entry;
+import me.tatarka.fuckxml.benchmark.model.feed;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -36,33 +36,28 @@ public class SAXTweetsReader implements TweetsReader {
     }
 
     @Override
-    public String getParserName() {
-        return "SAX";
-    }
-
-    @Override
-    public Tweets read(InputStream stream) throws Exception {
+    public feed read(InputStream stream) throws Exception {
         reader.parse(new InputSource(stream));
         return handler.getResult();
     }
 
     private static class TweetsHandler extends DefaultLexicalHandler {
         private DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
-        private Tweets tweets;
-        private Tweet tweet;
+        private feed tweets;
+        private entry tweet;
         private Content content;
         private Author author;
         private String currentElement;
         private StringBuilder chars;
 
-        public Tweets getResult() {
+        public feed getResult() {
             return tweets;
         }
 
         @Override
         public void startDocument() throws SAXException {
             chars = new StringBuilder();
-            tweets = new Tweets();
+            tweets = new feed();
             tweets.tweets = new ArrayList<>();
         }
 
@@ -72,7 +67,7 @@ public class SAXTweetsReader implements TweetsReader {
             chars.setLength(0);
 
             if ("entry".equals(qName)) {
-                tweets.tweets.add(tweet = new Tweet());
+                tweets.tweets.add(tweet = new entry());
             } else if ("content".equals(qName)) {
                 tweet.content = (content = new Content());
                 content.type = attributes.getValue("type");
@@ -115,7 +110,7 @@ public class SAXTweetsReader implements TweetsReader {
             } else if ("content".equals(currentElement)) {
                 content.value = characters.toString();
             } else if ("twitter:lang".equals(currentElement)) {
-                tweet.language = characters.toString();
+                tweet.lang = characters.toString();
             } else if ("name".equals(currentElement)) {
                 author.name = characters.toString();
             } else if ("uri".equals(currentElement)) {

@@ -7,7 +7,6 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:0.12.200'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -25,8 +24,8 @@ repositories {
 dependencies {
     compile 'com.squareup.okio:okio:1.4.0'
     compile 'com.intellij:annotations:+@jar'
-    testCompile 'org.jetbrains.kotlin:kotlin-stdlib:0.12.200'
     testCompile 'junit:junit:4.11'
     testCompile 'org.jetbrains.spek:spek:0.1.164'
-    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    testCompile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    compile 'org.simpleframework:simple-xml:2.7.1'
 }

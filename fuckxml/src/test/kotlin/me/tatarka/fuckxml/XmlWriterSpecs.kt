@@ -65,22 +65,22 @@ class XmlWriterSpecs : Spek() {
                             .beginTag("test2").endTag()
                             .endTag()
                 }
-                
+
                 it("should write the attribute and nested tag") {
                     assertEquals("<test1 attribute=\"value\"><test2/></test1>", result)
                 }
             }
-            
+
             on("a tag text") {
                 val result = xmlWriter {
                     it.beginTag("test").text("text").endTag()
                 }
-                
+
                 it("should write the tag with text") {
                     assertEquals("<test>text</test>", result)
                 }
             }
-            
+
             on("a tag with an attribute and text") {
                 val result = xmlWriter {
                     it.beginTag("test")
@@ -88,44 +88,44 @@ class XmlWriterSpecs : Spek() {
                             .text("text")
                             .endTag()
                 }
-                
+
                 it("should write the tag with attribute and text") {
                     assertEquals("<test attribute=\"value\">text</test>", result)
                 }
             }
-            
+
             on("a tag with a namespace declaration") {
                 val namespace = Namespace()
                 val result = xmlWriter {
                     it.beginTag("test").namespace(namespace, "ns", "foo").endTag()
                 }
-                
+
                 it("should write the tag with the declared namespace") {
                     assertEquals("<test xmlns:ns=\"foo\"/>", result)
                 }
-                
+
                 it("should write the namespace and alias to the provided namespace") {
                     assertEquals("ns", namespace.alias)
                     assertEquals("foo", namespace.namespace)
                 }
             }
-            
+
             on("a tag with a namespace") {
                 val namespace = Namespace()
                 val result = xmlWriter {
                     it.namespace(namespace, "ns", "foo").beginTag(namespace, "test").endTag()
                 }
-                
+
                 it("should write the namespace declaration and prefix the tag") {
                     assertEquals("<ns:test xmlns:ns=\"foo\"/>", result)
                 }
-                
+
                 it("should write the namespace and alias to the provided namespace") {
                     assertEquals("ns", namespace.alias)
                     assertEquals("foo", namespace.namespace)
                 }
             }
-            
+
             on("a tag with a namespaced attribute") {
                 val namespace = Namespace()
                 val result = xmlWriter {
@@ -134,14 +134,34 @@ class XmlWriterSpecs : Spek() {
                             .name(namespace, "attribute").value("value")
                             .endTag()
                 }
-                
+
                 it("should writhe the namespace declaration and prefix the attribute") {
-                    assertEquals("<test xmlns:ns=\"foo\" ns:attribute=\"value\"/>", result) 
+                    assertEquals("<test xmlns:ns=\"foo\" ns:attribute=\"value\"/>", result)
                 }
 
                 it("should write the namespace and alias to the provided namespace") {
                     assertEquals("ns", namespace.alias)
                     assertEquals("foo", namespace.namespace)
+                }
+            }
+
+            on("a an attribute value with characters that need to be replaced") {
+                val result = xmlWriter {
+                    it.beginTag("test").name("attribute").value("\"\'<>&").endTag()
+                }
+
+                it("should write the value with replaced entities") {
+                    assertEquals("<test attribute=\"&quot;&apos;&lt;&gt;&amp;\"/>", result)
+                }
+            }
+
+            on("text with characters that need to be replaced") {
+                val result = xmlWriter {
+                    it.beginTag("test").text("\"\'<>&").endTag()
+                }
+               
+                it("should write the text with replaced entities") {
+                    assertEquals("<test>&quot;&apos;&lt;&gt;&amp;</test>", result)
                 }
             }
         }

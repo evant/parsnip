@@ -1,11 +1,16 @@
 package me.tatarka.fuckxml;
 
-/**
- * Created by evan on 8/1/15.
- */
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Type;
+import java.util.Set;
+
 public interface TypeConverter<T> {
-   
+
     T from(String value);
 
     String to(T value);
+
+    interface Factory {
+        TypeConverter<?> create(Type type, Set<? extends Annotation> annotations);
+    }
 }

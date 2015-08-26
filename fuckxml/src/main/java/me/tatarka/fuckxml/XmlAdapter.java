@@ -9,9 +9,6 @@ import okio.Buffer;
 import okio.BufferedSink;
 import okio.BufferedSource;
 
-/**
- * Created by evan on 7/3/15.
- */
 public abstract class XmlAdapter<T> {
     public abstract T fromXml(XmlReader reader) throws IOException;
 
@@ -23,7 +20,7 @@ public abstract class XmlAdapter<T> {
         return fromXml(new Buffer().writeUtf8(string));
     }
 
-    public abstract void toXml(XmlWriter write, T value) throws IOException;
+    public abstract void toXml(XmlWriter writer, T value) throws IOException;
 
     public final void toXml(BufferedSink sink, T value) throws IOException {
         toXml(new XmlWriter(sink), value);
@@ -40,6 +37,6 @@ public abstract class XmlAdapter<T> {
     }
 
     public interface Factory {
-        XmlAdapter<?> create(Type type, Set<? extends Annotation> annotations, Xml xml);
+        XmlAdapter<?> create(Type type, Set<? extends Annotation> annotations, XmlAdapters adapters);
     }
 }

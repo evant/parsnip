@@ -12,8 +12,8 @@ import java.util.Locale;
 import me.tatarka.fuckxml.benchmark.TweetsReader;
 import me.tatarka.fuckxml.benchmark.model.Author;
 import me.tatarka.fuckxml.benchmark.model.Content;
-import me.tatarka.fuckxml.benchmark.model.Tweet;
-import me.tatarka.fuckxml.benchmark.model.Tweets;
+import me.tatarka.fuckxml.benchmark.model.entry;
+import me.tatarka.fuckxml.benchmark.model.feed;
 
 public class PullParserTweetsReader implements TweetsReader {
 
@@ -27,20 +27,15 @@ public class PullParserTweetsReader implements TweetsReader {
     }
 
     @Override
-    public String getParserName() {
-        return "Pull-Parser";
-    }
-
-    @Override
-    public Tweets read(InputStream stream) throws Exception {
+    public feed read(InputStream stream) throws Exception {
         XmlPullParser parser = f.newPullParser();
         parser.setInput(stream, "utf-8");
         parser.nextTag();
         return parse(parser);
     }
 
-    private Tweets parse(XmlPullParser parser) throws Exception {
-        Tweets tweets = new Tweets();
+    private feed parse(XmlPullParser parser) throws Exception {
+        feed tweets = new feed();
         tweets.tweets = new ArrayList<>();
         while (parser.next() != XmlPullParser.END_DOCUMENT) {
             if (parser.getEventType() != XmlPullParser.START_TAG) {
@@ -59,8 +54,8 @@ public class PullParserTweetsReader implements TweetsReader {
         return tweets;
     }
 
-    private Tweet readTweet(XmlPullParser parser) throws Exception {
-        Tweet tweet = new Tweet();
+    private entry readTweet(XmlPullParser parser) throws Exception {
+        entry tweet = new entry();
         while (parser.next() != XmlPullParser.END_TAG) {
             if (parser.getEventType() != XmlPullParser.START_TAG) {
                 continue;
@@ -77,7 +72,7 @@ public class PullParserTweetsReader implements TweetsReader {
                     tweet.content = readContent(parser);
                     break;
                 case "lang":
-                    tweet.language = readText(parser);
+                    tweet.lang = readText(parser);
                     break;
                 case "author":
                     tweet.author = readAuthor(parser);

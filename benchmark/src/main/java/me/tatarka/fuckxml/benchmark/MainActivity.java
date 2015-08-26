@@ -9,15 +9,18 @@ import android.widget.Button;
 
 import com.echo.holographlibrary.Bar;
 import com.echo.holographlibrary.BarGraph;
-import me.tatarka.fuckxml.benchmark.PerformanceTestRunner.TweetsReaderFactory;
-import me.tatarka.fuckxml.benchmark.parsers.DOMTweetsReader;
-import me.tatarka.fuckxml.benchmark.parsers.FuckXmlTweetsReader;
-import me.tatarka.fuckxml.benchmark.parsers.PullParserTweetsReader;
-import me.tatarka.fuckxml.benchmark.parsers.SAXTweetsReader;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import me.tatarka.fuckxml.benchmark.PerformanceTestRunner.TweetsReaderFactory;
+import me.tatarka.fuckxml.benchmark.parsers.DOMTweetsReader;
+import me.tatarka.fuckxml.benchmark.parsers.FuckXmlReflectionTweetsReader;
+import me.tatarka.fuckxml.benchmark.parsers.FuckXmlTweetsReader;
+import me.tatarka.fuckxml.benchmark.parsers.PullParserTweetsReader;
+import me.tatarka.fuckxml.benchmark.parsers.SAXTweetsReader;
+import me.tatarka.fuckxml.benchmark.parsers.SimpleXmlReader;
 
 /**
  * Created by evan on 6/20/15.
@@ -70,9 +73,11 @@ public class MainActivity extends Activity {
     public Statistics[] comparePerformance(int concurrency, int iterations) throws Exception {
         List<PerformanceTestRunner> runners = Arrays.asList(
                 newFuckXmlParserRunner(),
+                newFuckXmlReflectionRunner(),
                 newDOMRunner(),
                 newSAXRunner(),
-                newPullParserRunner()
+                newPullParserRunner(),
+                newSimpleXmlRunner()
         );
 
         // warm up and discard the first results
@@ -156,5 +161,35 @@ public class MainActivity extends Activity {
                     }
                 }
         );
+    }
+
+    private PerformanceTestRunner newFuckXmlReflectionRunner() {
+        return new PerformanceTestRunner(
+                new TweetsReaderFactory() {
+                    @Override
+                    public String getParserType() {
+                        return "Fuck Xml Reflection";
+                    }
+
+                    @Override
+                    public TweetsReader newReader() throws Exception {
+                        return new FuckXmlReflectionTweetsReader();
+                    }
+                }
+        );
+    }
+
+    private PerformanceTestRunner newSimpleXmlRunner() {
+        return new PerformanceTestRunner(new TweetsReaderFactory() {
+            @Override
+            public String getParserType() {
+                return "Simple XML";
+            }
+
+            @Override
+            public TweetsReader newReader() throws Exception {
+                return new SimpleXmlReader();
+            }
+        });
     }
 }

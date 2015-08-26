@@ -37,16 +37,15 @@ final class AdapterMethodsFactory implements XmlAdapter.Factory {
     }
 
     @Override
-    public XmlAdapter<?> create(Type type, Set<? extends Annotation> annotations, final Xml xml) {
+    public XmlAdapter<?> create(Type type, Set<? extends Annotation> annotations, final XmlAdapters adapters) {
         final AdapterMethod toAdapter = get(toAdapters, type, annotations);
         final AdapterMethod fromAdapter = get(fromAdapters, type, annotations);
         if (toAdapter == null && fromAdapter == null) return null;
 
         final XmlAdapter<Object> delegate;
         if (toAdapter == null || fromAdapter == null) {
-            try {
-                delegate = xml.nextAdapter(this, type, annotations);
-            } catch (IllegalArgumentException e) {
+            delegate = adapters.nextAdapter(this, type, annotations);
+            if (delegate == null) {
                 String missingAnnotation = toAdapter == null ? "@ToXml" : "@FromXml";
                 throw new IllegalArgumentException("No " + missingAnnotation + " adapter for "
                         + type + " annotated " + annotations);
@@ -57,33 +56,33 @@ final class AdapterMethodsFactory implements XmlAdapter.Factory {
 
         return new XmlAdapter<Object>() {
             @Override
-            public void toXml(XmlWriter writer, Object value) throws IOException {
-                if (toAdapter == null) {
-                    delegate.toXml(writer, value);
-                } else {
-                    try {
-                        toAdapter.toXml(xml, writer, value);
-                    } catch (IllegalAccessException e) {
-                        throw new AssertionError();
-                    } catch (InvocationTargetException e) {
-                        if (e.getCause() instanceof IOException) throw (IOException) e.getCause();
-                        throw new XmlDataException(e.getCause() + " at " + "writer.getPath()");
-                    }
-                }
-            }
-
-            @Override
             public Object fromXml(XmlReader reader) throws IOException {
                 if (fromAdapter == null) {
                     return delegate.fromXml(reader);
                 } else {
                     try {
-                        return fromAdapter.fromXml(xml, reader);
+                        return fromAdapter.fromXml(adapters, reader);
                     } catch (IllegalAccessException e) {
                         throw new AssertionError();
                     } catch (InvocationTargetException e) {
                         if (e.getCause() instanceof IOException) throw (IOException) e.getCause();
                         throw new XmlDataException(e.getCause() + " at " + reader.getPath());
+                    }
+                }
+            }
+
+            @Override
+            public void toXml(XmlWriter writer, Object value) throws IOException {
+                if (toAdapter == null) {
+                    delegate.toXml(writer, value);
+                } else {
+                    try {
+                        toAdapter.toXml(adapters, writer, value);
+                    } catch (IllegalAccessException e) {
+                        throw new AssertionError();
+                    } catch (InvocationTargetException e) {
+                        if (e.getCause() instanceof IOException) throw (IOException) e.getCause();
+                        throw new XmlDataException(e.getCause() + " at " + "writer.getPath()");
                     }
                 }
             }
@@ -145,7 +144,7 @@ final class AdapterMethodsFactory implements XmlAdapter.Factory {
                     = Util.xmlAnnotations(method.getParameterAnnotations()[1]);
             return new AdapterMethod(parameterTypes[1], parameterAnnotations, adapter, method, false) {
                 @Override
-                public void toXml(Xml xml, XmlWriter writer, Object value)
+                public void toXml(XmlAdapters adapters, XmlWriter writer, Object value)
                         throws IOException, InvocationTargetException, IllegalAccessException {
                     method.invoke(adapter, writer, value);
                 }
@@ -160,9 +159,12 @@ final class AdapterMethodsFactory implements XmlAdapter.Factory {
             boolean nullable = Util.hasNullable(parameterAnnotations[0]);
             return new AdapterMethod(parameterTypes[0], qualifierAnnotations, adapter, method, nullable) {
                 @Override
-                public void toXml(Xml xml, XmlWriter writer, Object value)
+                public void toXml(XmlAdapters adapters, XmlWriter writer, Object value)
                         throws IOException, InvocationTargetException, IllegalAccessException {
-                    XmlAdapter<Object> delegate = xml.adapter(returnType, returnTypeAnnotations);
+                    XmlAdapter<Object> delegate = adapters.adapter(returnType, returnTypeAnnotations);
+                    if (delegate == null) {
+                        throw new IllegalArgumentException("No XmlAdapter for type " + returnType + " and annotations " + returnTypeAnnotations);
+                    }
                     Object intermediate = method.invoke(adapter, value);
                     delegate.toXml(writer, intermediate);
                 }
@@ -192,7 +194,7 @@ final class AdapterMethodsFactory implements XmlAdapter.Factory {
             Set<? extends Annotation> returnTypeAnnotations = Util.xmlAnnotations(method);
             return new AdapterMethod(returnType, returnTypeAnnotations, adapter, method, false) {
                 @Override
-                public Object fromXml(Xml xml, XmlReader reader)
+                public Object fromXml(XmlAdapters adapters, XmlReader reader)
                         throws IOException, IllegalAccessException, InvocationTargetException {
                     return method.invoke(adapter, reader);
                 }
@@ -207,9 +209,12 @@ final class AdapterMethodsFactory implements XmlAdapter.Factory {
             boolean nullable = Util.hasNullable(parameterAnnotations[0]);
             return new AdapterMethod(returnType, returnTypeAnnotations, adapter, method, nullable) {
                 @Override
-                public Object fromXml(Xml xml, XmlReader reader)
+                public Object fromXml(XmlAdapters adapters, XmlReader reader)
                         throws IOException, IllegalAccessException, InvocationTargetException {
-                    XmlAdapter<Object> delegate = xml.adapter(parameterTypes[0], qualifierAnnotations);
+                    XmlAdapter<Object> delegate = adapters.adapter(parameterTypes[0], qualifierAnnotations);
+                    if (delegate == null) {
+                        throw new IllegalArgumentException("No XmlAdapter for type " + parameterTypes[0] + " and annotations " + qualifierAnnotations);
+                    }
                     Object intermediate = delegate.fromXml(reader);
                     return method.invoke(adapter, intermediate);
                 }
@@ -252,12 +257,12 @@ final class AdapterMethodsFactory implements XmlAdapter.Factory {
             this.nullable = nullable;
         }
 
-        public void toXml(Xml xml, XmlWriter writer, Object value)
+        public void toXml(XmlAdapters adapters, XmlWriter writer, Object value)
                 throws IOException, IllegalAccessException, InvocationTargetException {
             throw new AssertionError();
         }
 
-        public Object fromXml(Xml xml, XmlReader reader)
+        public Object fromXml(XmlAdapters adapters, XmlReader reader)
                 throws IOException, IllegalAccessException, InvocationTargetException {
             throw new AssertionError();
         }

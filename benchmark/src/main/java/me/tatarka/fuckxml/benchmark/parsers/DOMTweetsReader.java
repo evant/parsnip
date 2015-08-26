@@ -3,8 +3,8 @@ package me.tatarka.fuckxml.benchmark.parsers;
 import me.tatarka.fuckxml.benchmark.TweetsReader;
 import me.tatarka.fuckxml.benchmark.model.Author;
 import me.tatarka.fuckxml.benchmark.model.Content;
-import me.tatarka.fuckxml.benchmark.model.Tweet;
-import me.tatarka.fuckxml.benchmark.model.Tweets;
+import me.tatarka.fuckxml.benchmark.model.entry;
+import me.tatarka.fuckxml.benchmark.model.feed;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -29,33 +29,28 @@ public class DOMTweetsReader implements TweetsReader {
         dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
     }
 
-    @Override
-    public String getParserName() {
-        return "W3C DOM";
-    }
-
-    public Tweets read(InputStream stream) throws Exception {
+    public feed read(InputStream stream) throws Exception {
         Document document = builder.parse(stream, "utf-8");
-        Tweets result = new Tweets();
+        feed result = new feed();
         result.tweets = new ArrayList<>();
         unmarshall(document, result);
         return result;
     }
 
-    public void unmarshall(Document doc, Tweets tweets)
+    public void unmarshall(Document doc, feed tweets)
             throws Exception {
         NodeList nodes = doc.getChildNodes().item(0).getChildNodes();
         for (int i = 0; i < nodes.getLength(); i++) {
             Node n = nodes.item(i);
             if ((n.getNodeType() == Node.ELEMENT_NODE) && ("entry".equals(n.getNodeName()))) {
-                Tweet tweet = new Tweet();
+                entry tweet = new entry();
                 tweets.tweets.add(tweet);
                 unmarshallEntry((Element) n, tweet);
             }
         }
     }
 
-    private void unmarshallEntry(Element tweetElem, Tweet tweet)
+    private void unmarshallEntry(Element tweetElem, entry tweet)
             throws Exception {
         NodeList _nodes = tweetElem.getChildNodes();
         for (int i = 0; i < _nodes.getLength(); i++) {
@@ -70,7 +65,7 @@ public class DOMTweetsReader implements TweetsReader {
                     tweet.content = content;
                     unmarshallContent((Element) node, content);
                 } else if ("twitter:lang".equals(node.getNodeName())) {
-                    tweet.language = getPCData(node);
+                    tweet.lang = getPCData(node);
                 } else if ("author".equals(node.getNodeName())) {
                     Author author = new Author();
                     tweet.author = author;

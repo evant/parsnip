@@ -8,23 +8,24 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
+import me.tatarka.fuckxml.annottions.Text;
+
 final class ClassXmlAdapter<T> extends XmlAdapter<T> {
-    /**
-     * We need a special name for the text field, since we don't get that information from the xml
-     **/
-    static final String NAME_TEXT = "!com.fuckxml.TEXT";
+    // Unique name for text attribute, so it can be in the map with everything else. 
+    private static final String TEXT = "!me.tatarka.fuckxml.text";
 
     static final XmlAdapter.Factory FACTORY = new Factory() {
         @Override
-        public XmlAdapter<?> create(Type type, Set<? extends Annotation> annotations, Xml xml) {
+        public XmlAdapter<?> create(Type type, Set<? extends Annotation> annotations, XmlAdapters adapters) {
             Class<?> rawType = Types.getRawType(type);
-            if (rawType.isInterface() || rawType.isEnum() || isPlatformType(rawType)) return null;
+            if (rawType.isInterface() || rawType.isEnum() || isPlatformType(rawType) || rawType.isPrimitive()) return null;
             if (!annotations.isEmpty()) return null;
 
             if (rawType.getEnclosingClass() != null && !Modifier.isStatic(rawType.getModifiers())) {
@@ -43,13 +44,13 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
             ClassFactory<Object> classFactory = ClassFactory.get(rawType);
             Map<String, FieldBinding> fields = new TreeMap<>();
             for (Type t = type; t != Object.class; t = Types.getGenericSuperclass(t)) {
-                createFieldBindings(xml, t, fields);
+                createFieldBindings(adapters, t, fields);
             }
             return new ClassXmlAdapter<>(classFactory, fields);
         }
 
         /** Creates a field binding for each of declared field of {@code type}. */
-        private void createFieldBindings(Xml xml, Type type, Map<String, FieldBinding> fieldBindings) {
+        private void createFieldBindings(XmlAdapters adapters, Type type, Map<String, FieldBinding> fields) {
             Class<?> rawType = Types.getRawType(type);
             boolean platformType = isPlatformType(rawType);
             for (Field field : rawType.getDeclaredFields()) {
@@ -62,30 +63,49 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
 
                 // Create the binding between field and Xml.
                 Class<?> rawFieldType = Types.getRawType(fieldType);
-                XmlAdapter<Object> adapter;
-                FieldBinding<?> fieldBinding;
                 if (rawFieldType == List.class || rawFieldType == Collection.class || rawFieldType == Set.class) {
                     // Collections are weird in xml. A collection is multiple tags of the same name.
                     // However, they may be interspersed with other items. To handle this, we will
                     // just use the collection element type's adapter, and append it to the field's
                     // collection each time one is found.
                     Type elementType = Types.collectionElementType(fieldType, Collection.class);
+                    Class<?> rawElementType = Types.getRawType(elementType);
                     CollectionFactory collectionFactory = rawFieldType == List.class || rawFieldType == Collection.class
                             ? ARRAY_LIST_COLLECTION_FACTORY : LINKED_HASH_SET_COLLECTION_FACTORY;
-                    adapter = xml.adapter(elementType, annotations);
-                    fieldBinding = new CollectionFieldBinding<>(field, adapter, collectionFactory);
+                    XmlAdapter<?> adapter = adapters.adapter(elementType, annotations);
+                    fields.put(rawElementType.getSimpleName(), new CollectionFieldBinding<>(field, adapter, collectionFactory));
                 } else {
-                    adapter = xml.adapter(fieldType, annotations);
-                    fieldBinding = new SimpleFieldBinding<>(field, adapter);
-                }
-
-                String name = adapter instanceof TextXmlAdapter ? NAME_TEXT : field.getName();
-                // Store it using the field's name. If there was already a field with this name, fail!
-                FieldBinding replaced = fieldBindings.put(name, fieldBinding);
-                if (replaced != null) {
-                    throw new IllegalArgumentException("Field name collision: '" + field.getName() + "'"
-                            + " declared by both " + replaced.field.getDeclaringClass().getName()
-                            + " and superclass " + fieldBinding.field.getDeclaringClass().getName());
+                    if (field.isAnnotationPresent(Text.class)) {
+                        TypeConverter<?> converter = adapters.converter(fieldType, annotations);
+                        if (converter == null) {
+                            throw new IllegalArgumentException("No TypeConverter for type " + fieldType + " and annotations " + annotations);
+                        }
+                        TextFieldBinding<?> fieldBinding = new TextFieldBinding<>(field, converter);
+                        FieldBinding replaced = fields.put(TEXT, fieldBinding);
+                        if (replaced != null) {
+                            throw new IllegalArgumentException("Text annotation collision: @Text is on both '"
+                                    + field.getName() + "' and '" + replaced.field.getName() + "'.");
+                        }
+                    } else {
+                        XmlAdapter<?> adapter = adapters.adapter(fieldType, annotations);
+                        FieldBinding<?> fieldBinding;
+                        if (adapter != null) {
+                            fieldBinding = new TagFieldBinding<>(field, adapter);
+                        } else {
+                            TypeConverter<?> converter = adapters.converter(fieldType, annotations);
+                            if (converter == null) {
+                                throw new IllegalArgumentException("No XmlAdapter or TypeConverter for type " + fieldType + " and annotations " + annotations);
+                            }
+                            fieldBinding = new AttributeFieldBinding<>(field, converter);
+                        }
+                        FieldBinding replaced = fields.put(field.getName(), fieldBinding);
+                        // Store it using the field's name. If there was already a field with this name, fail!
+                        if (replaced != null) {
+                            throw new IllegalArgumentException("Field name collision: '" + field.getName() + "'"
+                                    + " declared by both " + replaced.field.getDeclaringClass().getName()
+                                    + " and superclass " + fieldBinding.field.getDeclaringClass().getName());
+                        }
+                    }
                 }
             }
         }
@@ -131,10 +151,12 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
         } catch (IllegalAccessException e) {
             throw new AssertionError(e);
         }
-        
+
         for (FieldBinding fieldBinding : fields.values()) {
             try {
-                fieldBinding.init(result);
+                if (fieldBinding instanceof CollectionFieldBinding) {
+                    ((CollectionFieldBinding) fieldBinding).init(result);
+                }
             } catch (IllegalAccessException e) {
                 throw new AssertionError(e);
             }
@@ -142,50 +164,39 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
 
         try {
             XmlReader.Token token = reader.peek();
-            // Read the begin tag if it hasn't already (won't be on root)
-            // TODO: validate root tag name?
-            if (token == XmlReader.Token.BEGIN_TAG) {
-                reader.beginTag();
-                token = reader.peek();
-            }
             while (token != XmlReader.Token.END_TAG) {
+                String name;
                 switch (token) {
                     case ATTRIBUTE: {
-                        String name = reader.nextAttribute();
-                        FieldBinding fieldBinding = fields.get(name);
-                        if (fieldBinding != null) {
-                            fieldBinding.read(reader, result);
-                        } else {
-                            reader.skip();
-                        }
+                        name = reader.nextAttribute();
                         break;
                     }
                     case TEXT: {
-                        FieldBinding fieldBinding = fields.get(NAME_TEXT);
-                        if (fieldBinding != null) {
-                            fieldBinding.read(reader, result);
-                        } else {
-                            reader.skip();
-                        }
+                        name = TEXT;
                         break;
                     }
                     case BEGIN_TAG: {
-                        String name = reader.beginTag();
-                        FieldBinding fieldBinding = fields.get(name);
-                        if (fieldBinding != null) {
-                            fieldBinding.read(reader, result);
-                        } else {
-                            reader.skipTag();
-                        }
+                        name = reader.beginTag();
                         break;
                     }
                     case END_DOCUMENT: {
                         throw new XmlDataException("Unexpected end of document");
                     }
+                    default:
+                        name = null;
                 }
+
+                if (name != null) {
+                    FieldBinding fieldBinding = fields.get(name);
+                    if (fieldBinding != null) {
+                        fieldBinding.read(reader, result);
+                    } else {
+                        reader.skipTag();
+                    }
+                }
+                
                 token = reader.peek();
             }
-            reader.endTag();
         } catch (IllegalAccessException e) {
             throw new AssertionError(e);
         }
@@ -193,52 +204,103 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
     }
 
     @Override
-    public void toXml(XmlWriter write, T value) throws IOException {
-        //TODO
+    public void toXml(XmlWriter writer, T value) throws IOException {
+        try {
+            for (Map.Entry<String, FieldBinding> entry : fields.entrySet()) {
+                FieldBinding fieldBinding = entry.getValue();
+                fieldBinding.write(writer, value);
+            }
+        } catch (IllegalAccessException e) {
+            throw new AssertionError(e);
+        }
     }
 
     private static abstract class FieldBinding<T> {
         final Field field;
-        final XmlAdapter<T> adapter;
 
-        protected FieldBinding(Field field, XmlAdapter<T> adapter) {
+        FieldBinding(Field field) {
             this.field = field;
-            this.adapter = adapter;
         }
 
-        abstract void init(Object value) throws IllegalAccessException;
-
-        abstract void read(XmlReader reader, Object value) throws IOException, IllegalAccessException;
-
-        abstract void write(XmlWriter writer, Object value) throws IllegalAccessException, IOException;
-    }
-
-    private static class SimpleFieldBinding<T> extends FieldBinding<T> {
-        SimpleFieldBinding(Field field, XmlAdapter<T> adapter) {
-            super(field, adapter);
-        }
-
-        @Override
-        void init(Object value) {
-            // Nothing to do
-        }
-
-        @Override
         void read(XmlReader reader, Object value) throws IOException, IllegalAccessException {
-            T fieldValue = adapter.fromXml(reader);
+            Object fieldValue = readValue(reader);
             field.set(value, fieldValue);
         }
 
-        @Override
         @SuppressWarnings("unchecked")
-            // We require that field's values are of type T.
+        // We require that field's values are of type T.
         void write(XmlWriter writer, Object value) throws IllegalAccessException, IOException {
             T fieldValue = (T) field.get(value);
-            adapter.toXml(writer, fieldValue);
+            writeValue(writer, fieldValue);
+        }
+
+        abstract T readValue(XmlReader reader) throws IOException;
+
+        abstract void writeValue(XmlWriter writer, T value) throws IOException;
+    }
+
+    private static class TagFieldBinding<T> extends FieldBinding<T> {
+        final XmlAdapter<T> adapter;
+
+        TagFieldBinding(Field field, XmlAdapter<T> adapter) {
+            super(field);
+            this.adapter = adapter;
+        }
+
+        @Override
+        T readValue(XmlReader reader) throws IOException {
+            T value = adapter.fromXml(reader);
+            reader.endTag();
+            return value;
+        }
+
+        @Override
+        void writeValue(XmlWriter writer, T value) throws IOException {
+            writer.beginTag(field.getName());
+            adapter.toXml(writer, value);
+            writer.endTag();
         }
     }
 
-    private static class CollectionFieldBinding<T> extends FieldBinding<T> {
+    private static class AttributeFieldBinding<T> extends FieldBinding<T> {
+        final TypeConverter<T> converter;
+
+        AttributeFieldBinding(Field field, TypeConverter<T> converter) {
+            super(field);
+            this.converter = converter;
+        }
+
+        @Override
+        T readValue(XmlReader reader) throws IOException {
+            return converter.from(reader.nextValue());
+        }
+
+        @Override
+        void writeValue(XmlWriter writer, T value) throws IOException {
+            writer.name(field.getName()).value(converter.to(value));
+        }
+    }
+
+    private static class TextFieldBinding<T> extends FieldBinding<T> {
+        final TypeConverter<T> converter;
+
+        TextFieldBinding(Field field, TypeConverter<T> converter) {
+            super(field);
+            this.converter = converter;
+        }
+
+        @Override
+        T readValue(XmlReader reader) throws IOException {
+            return converter.from(reader.nextText());
+        }
+
+        @Override
+        void writeValue(XmlWriter writer, T value) throws IOException {
+            writer.text(converter.to(value));
+        }
+    }
+
+    private static class CollectionFieldBinding<T> extends TagFieldBinding<T> {
         final CollectionFactory collectionFactory;
 
         CollectionFieldBinding(Field field, XmlAdapter<T> adapter, CollectionFactory collectionFactory) {
@@ -246,7 +308,6 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
             this.collectionFactory = collectionFactory;
         }
 
-        @Override
         @SuppressWarnings("unchecked")
         void init(Object value) throws IllegalAccessException {
             // Ensure field holds a collection.
@@ -260,7 +321,7 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
         @SuppressWarnings("unchecked")
             // We require that field's values are of type Collection<T>.
         void read(XmlReader reader, Object value) throws IOException, IllegalAccessException {
-            T additionalValue = adapter.fromXml(reader);
+            T additionalValue = readValue(reader);
             Collection<T> currentValue = (Collection<T>) field.get(value);
             currentValue.add(additionalValue);
         }
@@ -272,7 +333,7 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
             Collection<T> fieldValue = (Collection<T>) field.get(value);
             if (fieldValue != null) {
                 for (T singleValue : fieldValue) {
-                    adapter.toXml(writer, singleValue);
+                    writeValue(writer, singleValue);
                 }
             }
         }

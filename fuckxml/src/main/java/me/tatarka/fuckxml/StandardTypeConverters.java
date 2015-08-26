@@ -1,64 +1,44 @@
 package me.tatarka.fuckxml;
 
-import org.jetbrains.annotations.Nullable;
-
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Set;
 
-import me.tatarka.fuckxml.annottions.Tag;
 import me.tatarka.fuckxml.annottions.Text;
 
-/**
- * Created by evan on 8/1/15.
- */
-final class StandardXmlAdapters {
-    static final XmlAdapter.Factory FACTORY = new XmlAdapter.Factory() {
+final class StandardTypeConverters {
+    
+    static final TypeConverter.Factory FACTORY = new TypeConverter.Factory() {
         @Override
-        public XmlAdapter<?> create(Type type, Set<? extends Annotation> annotations, Xml xml) {
-            TypeConverter<?> converter = findTypeConverter(type);
-            if (converter != null) {
-                if (Util.isAnnotationPresent(annotations, Text.class)) {
-                    return new TextXmlAdapter<>(converter);
-                } else if (Util.isAnnotationPresent(annotations, Tag.class)) {
-                    return new TagXmlAdapter<>(converter);
-                } else {
-                    return new AttributeXmlAdapter<>(converter);
-                }
+        public TypeConverter<?> create(Type type, Set<? extends Annotation> annotations) {
+            if (type == boolean.class) return BOOLEAN_TYPE_CONVERTER;
+            if (type == byte.class) return BYTE_TYPE_CONVERTER;
+            if (type == char.class) return CHARACTER_TYPE_CONVERTER;
+            if (type == double.class) return DOUBLE_TYPE_CONVERTER;
+            if (type == float.class) return FLOAT_TYPE_CONVERTER;
+            if (type == int.class) return INTEGER_TYPE_CONVERTER;
+            if (type == long.class) return LONG_TYPE_CONVERTER;
+            if (type == short.class) return SHORT_TYPE_CONVERTER;
+            if (type == Boolean.class) return BOOLEAN_TYPE_CONVERTER;
+            if (type == Byte.class) return BYTE_TYPE_CONVERTER;
+            if (type == Character.class) return CHARACTER_TYPE_CONVERTER;
+            if (type == Double.class) return DOUBLE_TYPE_CONVERTER;
+            if (type == Float.class) return FLOAT_TYPE_CONVERTER;
+            if (type == Integer.class) return INTEGER_TYPE_CONVERTER;
+            if (type == Long.class) return LONG_TYPE_CONVERTER;
+            if (type == Short.class) return SHORT_TYPE_CONVERTER;
+            if (type == String.class) return STRING_TYPE_CONVERTER;
+            Class<?> rawType = Types.getRawType(type);
+            if (rawType.isEnum()) {
+                //noinspection unchecked
+                return enumConverter((Class<? extends Enum>) rawType);
             }
             return null;
         }
     };
-
+    
     private static final String ERROR_FORMAT = "Expected %s but was %s";
-
-    @Nullable
-    private static TypeConverter<?> findTypeConverter(Type type) {
-        if (type == boolean.class) return BOOLEAN_TYPE_CONVERTER;
-        if (type == byte.class) return BYTE_TYPE_CONVERTER;
-        if (type == char.class) return CHARACTER_TYPE_CONVERTER;
-        if (type == double.class) return DOUBLE_TYPE_CONVERTER;
-        if (type == float.class) return FLOAT_TYPE_CONVERTER;
-        if (type == int.class) return INTEGER_TYPE_CONVERTER;
-        if (type == long.class) return LONG_TYPE_CONVERTER;
-        if (type == short.class) return SHORT_TYPE_CONVERTER;
-        if (type == Boolean.class) return BOOLEAN_TYPE_CONVERTER;
-        if (type == Byte.class) return BYTE_TYPE_CONVERTER;
-        if (type == Character.class) return CHARACTER_TYPE_CONVERTER;
-        if (type == Double.class) return DOUBLE_TYPE_CONVERTER;
-        if (type == Float.class) return FLOAT_TYPE_CONVERTER;
-        if (type == Integer.class) return INTEGER_TYPE_CONVERTER;
-        if (type == Long.class) return LONG_TYPE_CONVERTER;
-        if (type == Short.class) return SHORT_TYPE_CONVERTER;
-        if (type == String.class) return STRING_TYPE_CONVERTER;
-        Class<?> rawType = Types.getRawType(type);
-        if (rawType.isEnum()) {
-            //noinspection unchecked
-            return enumConverter((Class<? extends Enum>) rawType);
-        }
-        return null;
-    }
 
     private static int rangeCheckInt(String strValue, String typeMessage, int min, int max)
             throws XmlDataException {
