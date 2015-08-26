@@ -1,2 +1,2 @@
-include ':fuckxml', ':benchmark'
+include ':parsnip', ':benchmark'
 

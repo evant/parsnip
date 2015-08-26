@@ -29,7 +29,7 @@ repositories {
 }
 
 dependencies {
-    compile project(':fuckxml')
+    compile project(':parsnip')
     compile 'com.android.support:appcompat-v7:23.0.0'
     compile 'org.quanqi:android-holo-graph:0.1.0'
     compile('org.simpleframework:simple-xml:2.7.1') {
