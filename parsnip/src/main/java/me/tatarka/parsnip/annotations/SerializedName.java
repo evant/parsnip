@@ -1,15 +1,12 @@
-package me.tatarka.parsnip.annottions;
+package me.tatarka.parsnip.annotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Created by evan on 7/3/15.
- */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.FIELD)
-public @interface Namespace {
+@Target({ElementType.FIELD, ElementType.TYPE})
+public @interface SerializedName {
     String value();
 }

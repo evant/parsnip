@@ -1,4 +1,4 @@
-package me.tatarka.parsnip.annottions;
+package me.tatarka.parsnip.annotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -7,5 +7,6 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
-public @interface Text {
+@XmlQualifier
+public @interface Tag {
 }

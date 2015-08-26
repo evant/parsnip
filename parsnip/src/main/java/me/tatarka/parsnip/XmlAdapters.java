@@ -11,11 +11,11 @@ import java.util.List;
 import java.util.Set;
 
 public class XmlAdapters {
-    private final List<me.tatarka.parsnip.XmlAdapter.Factory> factories;
+    private final List<XmlAdapter.Factory> factories;
     private final List<TypeConverter.Factory> typeConverterFactories;
     private final ThreadLocal<List<DeferredAdapter<?>>> reentrantCalls = new ThreadLocal<>();
 
-    XmlAdapters(List<me.tatarka.parsnip.XmlAdapter.Factory> factories, List<TypeConverter.Factory> typeConverterFactories) {
+    XmlAdapters(List<XmlAdapter.Factory> factories, List<TypeConverter.Factory> typeConverterFactories) {
         this.factories = Collections.unmodifiableList(factories);
         this.typeConverterFactories = Collections.unmodifiableList(typeConverterFactories);
     }
@@ -26,13 +26,12 @@ public class XmlAdapters {
     }
 
     @Nullable
-    public <T> XmlAdapter<T> nextAdapter(me.tatarka.parsnip.XmlAdapter.Factory skipPast, Type type, Set<? extends Annotation> annotations) {
+    public <T> XmlAdapter<T> nextAdapter(XmlAdapter.Factory skipPast, Type type, Set<? extends Annotation> annotations) {
         return createAdapter(factories.indexOf(skipPast) + 1, type, annotations);
     }
 
     /**
-     * Promote the {@link me.tatarka.parsnip.XmlAdapter} to root by wrapping it in one that reads
-     * the root tag.
+     * Promote the {@link XmlAdapter} to root by wrapping it in one that reads the root tag.
      *
      * @param name    the name of the root tag.
      * @param adapter the adapter to wrap.
@@ -124,13 +123,13 @@ public class XmlAdapters {
         }
 
         @Override
-        public T fromXml(me.tatarka.parsnip.XmlReader reader) throws IOException {
+        public T fromXml(XmlReader reader) throws IOException {
             if (delegate == null) throw new IllegalStateException("Type adapter isn't ready");
             return delegate.fromXml(reader);
         }
 
         @Override
-        public void toXml(me.tatarka.parsnip.XmlWriter writer, T value) throws IOException {
+        public void toXml(XmlWriter writer, T value) throws IOException {
             if (delegate == null) throw new IllegalStateException("Type adapter isn't ready");
             delegate.toXml(writer, value);
         }
@@ -146,7 +145,7 @@ public class XmlAdapters {
         }
 
         @Override
-        public T fromXml(me.tatarka.parsnip.XmlReader reader) throws IOException {
+        public T fromXml(XmlReader reader) throws IOException {
             String name = reader.beginTag();
             if (!this.name.equals(name)) {
                 throw new me.tatarka.parsnip.XmlDataException("Invalid root tag. Expected " + this.name + " but got " + name);
@@ -157,7 +156,7 @@ public class XmlAdapters {
         }
 
         @Override
-        public void toXml(me.tatarka.parsnip.XmlWriter writer, T value) throws IOException {
+        public void toXml(XmlWriter writer, T value) throws IOException {
             writer.beginTag(name);
             delegate.toXml(writer, value);
             writer.endTag();

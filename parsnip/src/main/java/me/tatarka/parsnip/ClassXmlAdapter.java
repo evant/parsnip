@@ -14,15 +14,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
-import me.tatarka.parsnip.annottions.Text;
+import me.tatarka.parsnip.annotations.SerializedName;
+import me.tatarka.parsnip.annotations.Text;
 
-final class ClassXmlAdapter<T> extends me.tatarka.parsnip.XmlAdapter<T> {
+final class ClassXmlAdapter<T> extends XmlAdapter<T> {
     // Unique name for text attribute, so it can be in the map with everything else. 
     private static final String TEXT = "!me.tatarka.parsnip.text";
 
     static final Factory FACTORY = new Factory() {
         @Override
-        public me.tatarka.parsnip.XmlAdapter<?> create(Type type, Set<? extends Annotation> annotations, XmlAdapters adapters) {
+        public XmlAdapter<?> create(Type type, Set<? extends Annotation> annotations, XmlAdapters adapters) {
             Class<?> rawType = Types.getRawType(type);
             if (rawType.isInterface() || rawType.isEnum() || isPlatformType(rawType) || rawType.isPrimitive())
                 return null;
@@ -41,7 +42,7 @@ final class ClassXmlAdapter<T> extends me.tatarka.parsnip.XmlAdapter<T> {
                 throw new IllegalArgumentException("Cannot serialize abstract class " + rawType.getName());
             }
 
-            me.tatarka.parsnip.ClassFactory<Object> classFactory = me.tatarka.parsnip.ClassFactory.get(rawType);
+            ClassFactory<Object> classFactory = ClassFactory.get(rawType);
             Map<String, FieldBinding> fields = new TreeMap<>();
             for (Type t = type; t != Object.class; t = Types.getGenericSuperclass(t)) {
                 createFieldBindings(adapters, t, fields);
@@ -72,11 +73,12 @@ final class ClassXmlAdapter<T> extends me.tatarka.parsnip.XmlAdapter<T> {
                     Class<?> rawElementType = Types.getRawType(elementType);
                     CollectionFactory collectionFactory = rawFieldType == List.class || rawFieldType == Collection.class
                             ? ARRAY_LIST_COLLECTION_FACTORY : LINKED_HASH_SET_COLLECTION_FACTORY;
-                    me.tatarka.parsnip.XmlAdapter<?> adapter = adapters.adapter(elementType, annotations);
-                    fields.put(rawElementType.getSimpleName(), new CollectionFieldBinding<>(field, adapter, collectionFactory));
+                    String name = getCollectionFieldName(field, rawElementType);
+                    XmlAdapter<?> adapter = adapters.adapter(elementType, annotations);
+                    fields.put(name, new CollectionFieldBinding<>(field, name, adapter, collectionFactory));
                 } else {
                     if (field.isAnnotationPresent(Text.class)) {
-                        me.tatarka.parsnip.TypeConverter<?> converter = adapters.converter(fieldType, annotations);
+                        TypeConverter<?> converter = adapters.converter(fieldType, annotations);
                         if (converter == null) {
                             throw new IllegalArgumentException("No TypeConverter for type " + fieldType + " and annotations " + annotations);
                         }
@@ -87,18 +89,19 @@ final class ClassXmlAdapter<T> extends me.tatarka.parsnip.XmlAdapter<T> {
                                     + field.getName() + "' and '" + replaced.field.getName() + "'.");
                         }
                     } else {
-                        me.tatarka.parsnip.XmlAdapter<?> adapter = adapters.adapter(fieldType, annotations);
+                        XmlAdapter<?> adapter = adapters.adapter(fieldType, annotations);
                         FieldBinding<?> fieldBinding;
+                        String name = getFieldName(field);
                         if (adapter != null) {
-                            fieldBinding = new TagFieldBinding<>(field, adapter);
+                            fieldBinding = new TagFieldBinding<>(field, name, adapter);
                         } else {
-                            me.tatarka.parsnip.TypeConverter<?> converter = adapters.converter(fieldType, annotations);
+                            TypeConverter<?> converter = adapters.converter(fieldType, annotations);
                             if (converter == null) {
                                 throw new IllegalArgumentException("No XmlAdapter or TypeConverter for type " + fieldType + " and annotations " + annotations);
                             }
-                            fieldBinding = new AttributeFieldBinding<>(field, converter);
+                            fieldBinding = new AttributeFieldBinding<>(field, name, converter);
                         }
-                        FieldBinding replaced = fields.put(field.getName(), fieldBinding);
+                        FieldBinding replaced = fields.put(name, fieldBinding);
                         // Store it using the field's name. If there was already a field with this name, fail!
                         if (replaced != null) {
                             throw new IllegalArgumentException("Field name collision: '" + field.getName() + "'"
@@ -125,6 +128,37 @@ final class ClassXmlAdapter<T> extends me.tatarka.parsnip.XmlAdapter<T> {
             if (Modifier.isStatic(modifiers) || Modifier.isTransient(modifiers)) return false;
             return Modifier.isPublic(modifiers) || Modifier.isProtected(modifiers) || !platformType;
         }
+
+        /**
+         * Returns the field name, taking into account the @SerializeName annotation.
+         */
+        private String getFieldName(Field field) {
+            SerializedName serializedName = field.getAnnotation(SerializedName.class);
+            if (serializedName != null) {
+                return serializedName.value();
+            } else {
+                return field.getName();
+            }
+        }
+
+        /**
+         * Returns the collection field name, taking into account @Serialize name. Uses the name of
+         * the collection type by default, as that is likely to be singular as opposed to the field
+         * name which is likely to be plural.
+         */
+        private String getCollectionFieldName(Field field, Class<?> rawElementType) {
+            SerializedName serializedName = field.getAnnotation(SerializedName.class);
+            if (serializedName != null) {
+                return serializedName.value();
+            } else {
+                serializedName = rawElementType.getAnnotation(SerializedName.class);
+                if (serializedName != null) {
+                    return serializedName.value();
+                } else {
+                    return rawElementType.getSimpleName();
+                }
+            }
+        }
     };
 
     private final me.tatarka.parsnip.ClassFactory<T> classFactory;
@@ -136,7 +170,7 @@ final class ClassXmlAdapter<T> extends me.tatarka.parsnip.XmlAdapter<T> {
     }
 
     @Override
-    public T fromXml(me.tatarka.parsnip.XmlReader reader) throws IOException {
+    public T fromXml(XmlReader reader) throws IOException {
         T result;
         try {
             result = classFactory.newInstance();
@@ -163,8 +197,8 @@ final class ClassXmlAdapter<T> extends me.tatarka.parsnip.XmlAdapter<T> {
         }
 
         try {
-            me.tatarka.parsnip.XmlReader.Token token = reader.peek();
-            while (token != me.tatarka.parsnip.XmlReader.Token.END_TAG) {
+            XmlReader.Token token = reader.peek();
+            while (token != XmlReader.Token.END_TAG) {
                 switch (token) {
                     case ATTRIBUTE: {
                         String name = reader.nextAttribute();
@@ -227,7 +261,7 @@ final class ClassXmlAdapter<T> extends me.tatarka.parsnip.XmlAdapter<T> {
             this.field = field;
         }
 
-        void read(me.tatarka.parsnip.XmlReader reader, Object value) throws IOException, IllegalAccessException {
+        void read(XmlReader reader, Object value) throws IOException, IllegalAccessException {
             Object fieldValue = readValue(reader);
             field.set(value, fieldValue);
         }
@@ -239,21 +273,23 @@ final class ClassXmlAdapter<T> extends me.tatarka.parsnip.XmlAdapter<T> {
             writeValue(writer, fieldValue);
         }
 
-        abstract T readValue(me.tatarka.parsnip.XmlReader reader) throws IOException;
+        abstract T readValue(XmlReader reader) throws IOException;
 
         abstract void writeValue(XmlWriter writer, T value) throws IOException;
     }
 
     private static class TagFieldBinding<T> extends FieldBinding<T> {
-        final me.tatarka.parsnip.XmlAdapter<T> adapter;
+        final String name;
+        final XmlAdapter<T> adapter;
 
-        TagFieldBinding(Field field, me.tatarka.parsnip.XmlAdapter<T> adapter) {
+        TagFieldBinding(Field field, String name, XmlAdapter<T> adapter) {
             super(field);
+            this.name = name;
             this.adapter = adapter;
         }
 
         @Override
-        T readValue(me.tatarka.parsnip.XmlReader reader) throws IOException {
+        T readValue(XmlReader reader) throws IOException {
             T value = adapter.fromXml(reader);
             reader.endTag();
             return value;
@@ -261,41 +297,43 @@ final class ClassXmlAdapter<T> extends me.tatarka.parsnip.XmlAdapter<T> {
 
         @Override
         void writeValue(XmlWriter writer, T value) throws IOException {
-            writer.beginTag(field.getName());
+            writer.beginTag(name);
             adapter.toXml(writer, value);
             writer.endTag();
         }
     }
 
     private static class AttributeFieldBinding<T> extends FieldBinding<T> {
-        final me.tatarka.parsnip.TypeConverter<T> converter;
+        final String name;
+        final TypeConverter<T> converter;
 
-        AttributeFieldBinding(Field field, me.tatarka.parsnip.TypeConverter<T> converter) {
+        AttributeFieldBinding(Field field, String name, TypeConverter<T> converter) {
             super(field);
+            this.name = name;
             this.converter = converter;
         }
 
         @Override
-        T readValue(me.tatarka.parsnip.XmlReader reader) throws IOException {
+        T readValue(XmlReader reader) throws IOException {
             return converter.from(reader.nextValue());
         }
 
         @Override
         void writeValue(XmlWriter writer, T value) throws IOException {
-            writer.name(field.getName()).value(converter.to(value));
+            writer.name(name).value(converter.to(value));
         }
     }
 
     private static class TextFieldBinding<T> extends FieldBinding<T> {
-        final me.tatarka.parsnip.TypeConverter<T> converter;
+        final TypeConverter<T> converter;
 
-        TextFieldBinding(Field field, me.tatarka.parsnip.TypeConverter<T> converter) {
+        TextFieldBinding(Field field, TypeConverter<T> converter) {
             super(field);
             this.converter = converter;
         }
 
         @Override
-        T readValue(me.tatarka.parsnip.XmlReader reader) throws IOException {
+        T readValue(XmlReader reader) throws IOException {
             return converter.from(reader.nextText());
         }
 
@@ -308,8 +346,8 @@ final class ClassXmlAdapter<T> extends me.tatarka.parsnip.XmlAdapter<T> {
     private static class CollectionFieldBinding<T> extends TagFieldBinding<T> {
         final CollectionFactory collectionFactory;
 
-        CollectionFieldBinding(Field field, me.tatarka.parsnip.XmlAdapter<T> adapter, CollectionFactory collectionFactory) {
-            super(field, adapter);
+        CollectionFieldBinding(Field field, String name, XmlAdapter<T> adapter, CollectionFactory collectionFactory) {
+            super(field, name, adapter);
             this.collectionFactory = collectionFactory;
         }
 
@@ -325,7 +363,7 @@ final class ClassXmlAdapter<T> extends me.tatarka.parsnip.XmlAdapter<T> {
         @Override
         @SuppressWarnings("unchecked")
             // We require that field's values are of type Collection<T>.
-        void read(me.tatarka.parsnip.XmlReader reader, Object value) throws IOException, IllegalAccessException {
+        void read(XmlReader reader, Object value) throws IOException, IllegalAccessException {
             T additionalValue = readValue(reader);
             Collection<T> currentValue = (Collection<T>) field.get(value);
             currentValue.add(additionalValue);

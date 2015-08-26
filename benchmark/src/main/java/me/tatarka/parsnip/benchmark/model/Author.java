@@ -3,7 +3,7 @@ package me.tatarka.parsnip.benchmark.model;
 import org.simpleframework.xml.Element;
 import org.simpleframework.xml.Root;
 
-import me.tatarka.parsnip.annottions.Tag;
+import me.tatarka.parsnip.annotations.Tag;
 
 @Root(strict = false)
 public class Author {

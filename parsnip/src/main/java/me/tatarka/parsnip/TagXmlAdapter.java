@@ -6,8 +6,10 @@ import java.lang.reflect.Type;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import me.tatarka.parsnip.annotations.Tag;
+
 /**
- * If there is a {@link me.tatarka.parsnip.annottions.Tag} annotation, this will delegate to just the text of the tag. This is
+ * If there is a {@link Tag} annotation, this will delegate to just the text of the tag. This is
  * useful for handling xml tags without attributes.
  */
 public class TagXmlAdapter<T> extends XmlAdapter<T> {
@@ -15,12 +17,12 @@ public class TagXmlAdapter<T> extends XmlAdapter<T> {
     static final Factory FACTORY = new Factory() {
         @Override
         public XmlAdapter<?> create(Type type, Set<? extends Annotation> annotations, XmlAdapters adapters) {
-            if (!me.tatarka.parsnip.Util.isAnnotationPresent(annotations, me.tatarka.parsnip.annottions.Tag.class)) {
+            if (!me.tatarka.parsnip.Util.isAnnotationPresent(annotations, Tag.class)) {
                 return null;
             }
             Set<Annotation> restOfAnnotations = new LinkedHashSet<>();
             for (Annotation annotation : annotations) {
-                if (!(annotation instanceof me.tatarka.parsnip.annottions.Tag)) {
+                if (!(annotation instanceof Tag)) {
                     restOfAnnotations.add(annotation);
                 }
             }

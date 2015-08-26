@@ -4,8 +4,8 @@ import me.tatarka.parsnip.benchmark.PerformanceTestRunner;
 import me.tatarka.parsnip.benchmark.TweetsReader;
 import me.tatarka.parsnip.benchmark.model.Author;
 import me.tatarka.parsnip.benchmark.model.Content;
-import me.tatarka.parsnip.benchmark.model.entry;
-import me.tatarka.parsnip.benchmark.model.feed;
+import me.tatarka.parsnip.benchmark.model.Tweet;
+import me.tatarka.parsnip.benchmark.model.Tweets;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -48,28 +48,28 @@ public class SAXTweetsReader implements TweetsReader {
     }
 
     @Override
-    public feed read(InputStream stream) throws Exception {
+    public Tweets read(InputStream stream) throws Exception {
         reader.parse(new InputSource(stream));
         return handler.getResult();
     }
 
     private static class TweetsHandler extends DefaultLexicalHandler {
         private DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
-        private feed tweets;
-        private entry tweet;
+        private Tweets tweets;
+        private Tweet tweet;
         private Content content;
         private Author author;
         private String currentElement;
         private StringBuilder chars;
 
-        public feed getResult() {
+        public Tweets getResult() {
             return tweets;
         }
 
         @Override
         public void startDocument() throws SAXException {
             chars = new StringBuilder();
-            tweets = new feed();
+            tweets = new Tweets();
             tweets.tweets = new ArrayList<>();
         }
 
@@ -79,7 +79,7 @@ public class SAXTweetsReader implements TweetsReader {
             chars.setLength(0);
 
             if ("entry".equals(qName)) {
-                tweets.tweets.add(tweet = new entry());
+                tweets.tweets.add(tweet = new Tweet());
             } else if ("content".equals(qName)) {
                 tweet.content = (content = new Content());
                 content.type = attributes.getValue("type");

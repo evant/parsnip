@@ -2,7 +2,7 @@ package me.tatarka.parsnip.benchmark;
 
 import android.content.res.AssetManager;
 import android.util.Log;
-import me.tatarka.parsnip.benchmark.model.feed;
+import me.tatarka.parsnip.benchmark.model.Tweets;
 
 import java.io.InputStream;
 import java.util.concurrent.CyclicBarrier;
@@ -28,7 +28,7 @@ public class ReadingThread implements Runnable {
             gate.await();
             for (int i = 0; i < iterations; i++) {
                 InputStream in = assetManager.open("twitter-atom.xml");
-                feed tweets = reader.read(in);
+                Tweets tweets = reader.read(in);
                 if (tweets == null) {
                     throw new RuntimeException("Expected Tweets");
                 }

@@ -11,8 +11,8 @@ import me.tatarka.parsnip.benchmark.PerformanceTestRunner;
 import me.tatarka.parsnip.benchmark.TweetsReader;
 import me.tatarka.parsnip.benchmark.model.Author;
 import me.tatarka.parsnip.benchmark.model.Content;
-import me.tatarka.parsnip.benchmark.model.entry;
-import me.tatarka.parsnip.benchmark.model.feed;
+import me.tatarka.parsnip.benchmark.model.Tweet;
+import me.tatarka.parsnip.benchmark.model.Tweets;
 import okio.Okio;
 
 public class ParsnipTweetsReader implements TweetsReader {
@@ -35,14 +35,14 @@ public class ParsnipTweetsReader implements TweetsReader {
     }
 
     @Override
-    public feed read(InputStream stream) throws Exception {
+    public Tweets read(InputStream stream) throws Exception {
         XmlReader reader = new XmlReader(Okio.buffer(Okio.source(stream)));
         reader.beginTag();
         return parse(reader);
     }
 
-    private feed parse(XmlReader reader) throws Exception {
-        feed tweets = new feed();
+    private Tweets parse(XmlReader reader) throws Exception {
+        Tweets tweets = new Tweets();
         tweets.tweets = new ArrayList<>();
 
         while (reader.peek() != XmlReader.Token.END_DOCUMENT) {
@@ -63,8 +63,8 @@ public class ParsnipTweetsReader implements TweetsReader {
         return tweets;
     }
 
-    private entry readTweet(XmlReader reader) throws Exception {
-        entry tweet = new entry();
+    private Tweet readTweet(XmlReader reader) throws Exception {
+        Tweet tweet = new Tweet();
         while (reader.peek() != XmlReader.Token.END_TAG) {
             if (reader.peek() != XmlReader.Token.BEGIN_TAG) {
                 reader.skip();

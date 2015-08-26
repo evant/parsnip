@@ -9,13 +9,12 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Locale;
 
-import me.tatarka.parsnip.TypeConverter;
 import me.tatarka.parsnip.benchmark.PerformanceTestRunner;
 import me.tatarka.parsnip.benchmark.TweetsReader;
 import me.tatarka.parsnip.benchmark.model.Author;
 import me.tatarka.parsnip.benchmark.model.Content;
-import me.tatarka.parsnip.benchmark.model.entry;
-import me.tatarka.parsnip.benchmark.model.feed;
+import me.tatarka.parsnip.benchmark.model.Tweet;
+import me.tatarka.parsnip.benchmark.model.Tweets;
 
 public class PullParserTweetsReader implements TweetsReader {
     public static final PerformanceTestRunner.TweetsReaderFactory FACTORY = new PerformanceTestRunner.TweetsReaderFactory() {
@@ -40,15 +39,15 @@ public class PullParserTweetsReader implements TweetsReader {
     }
 
     @Override
-    public feed read(InputStream stream) throws Exception {
+    public Tweets read(InputStream stream) throws Exception {
         XmlPullParser parser = f.newPullParser();
         parser.setInput(stream, "utf-8");
         parser.nextTag();
         return parse(parser);
     }
 
-    private feed parse(XmlPullParser parser) throws Exception {
-        feed tweets = new feed();
+    private Tweets parse(XmlPullParser parser) throws Exception {
+        Tweets tweets = new Tweets();
         tweets.tweets = new ArrayList<>();
         while (parser.next() != XmlPullParser.END_DOCUMENT) {
             if (parser.getEventType() != XmlPullParser.START_TAG) {
@@ -67,8 +66,8 @@ public class PullParserTweetsReader implements TweetsReader {
         return tweets;
     }
 
-    private entry readTweet(XmlPullParser parser) throws Exception {
-        entry tweet = new entry();
+    private Tweet readTweet(XmlPullParser parser) throws Exception {
+        Tweet tweet = new Tweet();
         while (parser.next() != XmlPullParser.END_TAG) {
             if (parser.getEventType() != XmlPullParser.START_TAG) {
                 continue;

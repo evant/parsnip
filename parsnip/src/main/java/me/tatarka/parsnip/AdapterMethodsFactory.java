@@ -24,8 +24,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import me.tatarka.parsnip.annottions.FromXml;
-import me.tatarka.parsnip.annottions.ToXml;
+import me.tatarka.parsnip.annotations.FromXml;
+import me.tatarka.parsnip.annotations.ToXml;
 
 final class AdapterMethodsFactory implements me.tatarka.parsnip.XmlAdapter.Factory {
     private final List<AdapterMethod> toAdapters;

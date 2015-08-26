@@ -22,7 +22,7 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import me.tatarka.parsnip.annottions.XmlQualifier;
+import me.tatarka.parsnip.annotations.XmlQualifier;
 
 final class Util {
   public static final Set<Annotation> NO_ANNOTATIONS = Collections.emptySet();

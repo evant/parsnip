@@ -12,7 +12,7 @@ import me.tatarka.parsnip.XmlAdapter;
 import me.tatarka.parsnip.XmlDataException;
 import me.tatarka.parsnip.benchmark.PerformanceTestRunner;
 import me.tatarka.parsnip.benchmark.TweetsReader;
-import me.tatarka.parsnip.benchmark.model.feed;
+import me.tatarka.parsnip.benchmark.model.Tweets;
 import okio.Okio;
 
 public class ParsnipReflectionTweetsReader implements TweetsReader {
@@ -31,9 +31,10 @@ public class ParsnipReflectionTweetsReader implements TweetsReader {
     private Xml xml = new Xml.Builder().add(Date.class, new DateTypeConverter()).build();
 
     @Override
-    public feed read(InputStream stream) throws Exception {
-        XmlAdapter<feed> adapter = xml.adapter(feed.class);
-        return adapter.fromXml(Okio.buffer(Okio.source(stream)));
+    public Tweets read(InputStream stream) throws Exception {
+        XmlAdapter<Tweets> adapter = xml.adapter(Tweets.class);
+        Tweets tweets = adapter.fromXml(Okio.buffer(Okio.source(stream)));
+        return tweets;
     }
 
     static class DateTypeConverter implements TypeConverter<Date> {

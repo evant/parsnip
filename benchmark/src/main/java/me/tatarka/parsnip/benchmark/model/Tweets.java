@@ -5,8 +5,11 @@ import org.simpleframework.xml.Root;
 
 import java.util.List;
 
-@Root(strict = false)
-public class feed {
+import me.tatarka.parsnip.annotations.SerializedName;
+
+@Root(strict = false, name = "feed")
+@SerializedName("feed")
+public class Tweets {
     @ElementList(inline = true, entry = "entry")
-    public List<entry> tweets;
+    public List<Tweet> tweets;
 }

@@ -5,10 +5,12 @@ import org.simpleframework.xml.Root;
 
 import java.util.Date;
 
-import me.tatarka.parsnip.annottions.Tag;
+import me.tatarka.parsnip.annotations.SerializedName;
+import me.tatarka.parsnip.annotations.Tag;
 
 @Root(strict = false)
-public class entry {
+@SerializedName("entry")
+public class Tweet {
     @Tag
     @Element
     public String title;

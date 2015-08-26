@@ -12,7 +12,7 @@ import java.util.Locale;
 
 import me.tatarka.parsnip.benchmark.PerformanceTestRunner;
 import me.tatarka.parsnip.benchmark.TweetsReader;
-import me.tatarka.parsnip.benchmark.model.feed;
+import me.tatarka.parsnip.benchmark.model.Tweets;
 
 public class SimpleXmlReader implements TweetsReader {
     public static final PerformanceTestRunner.TweetsReaderFactory FACTORY = new PerformanceTestRunner.TweetsReaderFactory() {
@@ -36,8 +36,8 @@ public class SimpleXmlReader implements TweetsReader {
     }
 
     @Override
-    public feed read(InputStream stream) throws Exception {
-        return serializer.read(feed.class, stream);
+    public Tweets read(InputStream stream) throws Exception {
+        return serializer.read(Tweets.class, stream);
     }
 
     static class DateFormatTransformer implements Transform<Date> {

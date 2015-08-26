@@ -6,7 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import me.tatarka.parsnip.annottions.XmlQualifier;
+import me.tatarka.parsnip.annotations.SerializedName;
+import me.tatarka.parsnip.annotations.XmlQualifier;
 
 public class Xml {
     private static final String ERROR_FORMAT = "No %s for %s annotated %s";
@@ -24,27 +25,36 @@ public class Xml {
         xmlAdapters = new XmlAdapters(adapterFactories, typeConverterFactories);
     }
 
-    public <T> me.tatarka.parsnip.XmlAdapter<T> adapter(Class<T> type) {
+    public <T> XmlAdapter<T> adapter(Class<T> type) {
         return adapter(type, me.tatarka.parsnip.Util.NO_ANNOTATIONS);
     }
 
-    public <T> me.tatarka.parsnip.XmlAdapter<T> adapter(Type type) {
+    public <T> XmlAdapter<T> adapter(Type type) {
         return adapter(type, me.tatarka.parsnip.Util.NO_ANNOTATIONS);
     }
 
-    public <T> me.tatarka.parsnip.XmlAdapter<T> adapter(Type type, Set<? extends Annotation> annotations) {
-        me.tatarka.parsnip.XmlAdapter<T> adapter = xmlAdapters.adapter(type, annotations);
+    public <T> XmlAdapter<T> adapter(Type type, Set<? extends Annotation> annotations) {
+        XmlAdapter<T> adapter = xmlAdapters.adapter(type, annotations);
         if (adapter == null) {
             throw new IllegalArgumentException(String.format(ERROR_FORMAT, "XmlAdapter", type, me.tatarka.parsnip.Util.NO_ANNOTATIONS));
         }
-        return xmlAdapters.root(Types.getRawType(type).getSimpleName(), adapter);
+        Class<?> rawType = Types.getRawType(type);
+        SerializedName serializedName = rawType.getAnnotation(SerializedName.class);
+        String name;
+        if (serializedName != null) {
+            name = serializedName.value();
+        } else {
+            name = rawType.getSimpleName();
+        }
+
+        return xmlAdapters.root(name, adapter);
     }
 
     public static final class Builder {
         private final List<me.tatarka.parsnip.XmlAdapter.Factory> adapterFactories = new ArrayList<>();
         private final List<me.tatarka.parsnip.TypeConverter.Factory> typeConverterFactories = new ArrayList<>();
 
-        public <T> Builder add(final Type type, final me.tatarka.parsnip.XmlAdapter<T> xmlAdapter) {
+        public <T> Builder add(final Type type, final XmlAdapter<T> xmlAdapter) {
             if (type == null) throw new IllegalArgumentException("type == null");
             if (xmlAdapter == null) throw new IllegalArgumentException("xmlAdapter == null");
 
@@ -56,7 +66,7 @@ public class Xml {
             });
         }
 
-        public <T> Builder add(final Type type, final Class<? extends Annotation> annotation, final me.tatarka.parsnip.XmlAdapter<T> xmlAdapter) {
+        public <T> Builder add(final Type type, final Class<? extends Annotation> annotation, final XmlAdapter<T> xmlAdapter) {
             if (type == null) throw new IllegalArgumentException("type == null");
             if (annotation == null) throw new IllegalArgumentException("annotation == null");
             if (xmlAdapter == null) throw new IllegalArgumentException("xmlAdapter == null");
@@ -69,7 +79,8 @@ public class Xml {
                 public me.tatarka.parsnip.XmlAdapter<?> create(Type targetType, Set<? extends Annotation> annotations, XmlAdapters adapters) {
                     if (!me.tatarka.parsnip.Util.typesMatch(type, targetType)) return null;
                     // TODO: check for an annotations exact match.
-                    if (!me.tatarka.parsnip.Util.isAnnotationPresent(annotations, annotation)) return null;
+                    if (!me.tatarka.parsnip.Util.isAnnotationPresent(annotations, annotation))
+                        return null;
                     return xmlAdapter;
                 }
             });
@@ -106,7 +117,8 @@ public class Xml {
                 public me.tatarka.parsnip.TypeConverter<?> create(Type targetType, Set<? extends Annotation> annotations) {
                     if (!me.tatarka.parsnip.Util.typesMatch(type, targetType)) return null;
                     // TODO: check for an annotations exact match.
-                    if (!me.tatarka.parsnip.Util.isAnnotationPresent(annotations, annotation)) return null;
+                    if (!me.tatarka.parsnip.Util.isAnnotationPresent(annotations, annotation))
+                        return null;
                     return typeConverter;
                 }
             });
