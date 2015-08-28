@@ -191,17 +191,17 @@ class XmlReaderSpecs : Spek() {
             }
 
             // Namespace
-            
+
             on("a tag with a namespaced name") {
                 val reader = xmlReader("<test1 xmlns:ns='foo'><ns:test2/></test1>")
                 reader.beginTag()
                 val namespace = Namespace()
                 val tag = reader.beginTag(namespace)
-                
+
                 it ("should read the tag name") {
                     assertEquals("test2", tag)
                 }
-                
+
                 it ("should read the tag namespace") {
                     assertEquals("foo", namespace.namespace)
                 }
@@ -282,7 +282,7 @@ class XmlReaderSpecs : Spek() {
                     assertEquals("value", value)
                 }
             }
-            
+
             on("a tag with a default namespace declaration") {
                 val reader = xmlReader("<test1 xmlns='foo'><test2/></test1>")
                 reader.beginTag()
@@ -361,6 +361,16 @@ class XmlReaderSpecs : Spek() {
 
                 it ("should expand the hex character reference in text") {
                     assertEquals("\u2603", text)
+                }
+            }
+
+            on("a tag with cdata text") {
+                val reader = xmlReader("<test><![CDATA[<test>text</test>]]></test")
+                reader.beginTag()
+                val text = reader.nextText()
+
+                it ("should read the cdata ignoring the xml characters") {
+                    assertEquals("<test>text</test>", text)
                 }
             }
 
@@ -510,31 +520,58 @@ class XmlReaderSpecs : Spek() {
                         assertEquals(XmlReader.Token.END_DOCUMENT, token5)
                     }
                 }
+
+                on("a tag with CDATA text") {
+                    val reader = xmlReader("<test><![CDATA[<test>text</test>]]></test>")
+                    val token1 = reader.peek()
+                    reader.beginTag()
+                    val token2 = reader.peek()
+                    reader.nextText()
+                    val token3 = reader.peek()
+                    reader.endTag()
+                    val token4 = reader.peek()
+
+                    it ("should first peek a BEGIN_TAG") {
+                        assertEquals(XmlReader.Token.BEGIN_TAG, token1)
+                    }
+
+                    it ("should next peek a TEXT") {
+                        assertEquals(XmlReader.Token.TEXT, token2)
+                    }
+
+                    it ("should next peek an END_TAG") {
+                        assertEquals(XmlReader.Token.END_TAG, token3)
+                    }
+
+                    it ("should finally peek an END_DOCUMENT") {
+                        assertEquals(XmlReader.Token.END_DOCUMENT, token4)
+                    }
+                }
             }
-            
+
             // Skip
-            
+
             on("skip begin tag") {
                 val reader = xmlReader("<test/>")
                 reader.skip()
-                val token = reader.peek() 
-                
+                val token = reader.peek()
+
                 it ("should peek an END_TAG") {
-                    assertEquals(XmlReader.Token.END_TAG, token) 
+                    assertEquals(XmlReader.Token.END_TAG, token)
                 }
             }
-            
+
             on("skip attribute") {
                 val reader = xmlReader("<text attribute=\"value\"/>")
                 reader.beginTag()
                 reader.skip()
                 val token = reader.peek()
-                
+
                 it ("should peek a VALUE") {
-                    assertEquals(XmlReader.Token.VALUE, token) 
+                    assertEquals(XmlReader.Token.VALUE, token)
                 }
             }
-            
+
             on("skip value") {
                 val reader = xmlReader("<test attribute=\"value\"/>")
                 reader.beginTag()
@@ -546,7 +583,7 @@ class XmlReaderSpecs : Spek() {
                     assertEquals(XmlReader.Token.END_TAG, token)
                 }
             }
-            
+
             on("skip text") {
                 val reader = xmlReader("<test>text</test>")
                 reader.beginTag()
@@ -557,20 +594,31 @@ class XmlReaderSpecs : Spek() {
                     assertEquals(XmlReader.Token.END_TAG, token)
                 }
             }
-            
+
+            on("skip CDATA text") {
+                val reader = xmlReader("<test><![CDATA[<test>text</test>]]></test>")
+                reader.beginTag()
+                reader.skip()
+                val token = reader.peek()
+
+                it ("should peek an END_TAG") {
+                    assertEquals(XmlReader.Token.END_TAG, token)
+                }
+            }
+
             on("skip end tag") {
                 val reader = xmlReader("<test/>")
                 reader.beginTag()
                 reader.skip()
                 val token = reader.peek()
-                
+
                 it ("should peek an END_DOCUMENT") {
                     assertEquals(XmlReader.Token.END_DOCUMENT, token)
                 }
             }
-            
+
             // Skip tag
-            
+
             on("skip self closing tag") {
                 val reader = xmlReader("<test/>")
                 reader.beginTag()
@@ -581,7 +629,7 @@ class XmlReaderSpecs : Spek() {
                     assertEquals(XmlReader.Token.END_DOCUMENT, token)
                 }
             }
-            
+
             on("skip an empty tag") {
                 val reader = xmlReader("<test></test>")
                 reader.beginTag()
@@ -592,7 +640,7 @@ class XmlReaderSpecs : Spek() {
                     assertEquals(XmlReader.Token.END_DOCUMENT, token)
                 }
             }
-            
+
             on("skip a tag with text") {
                 val reader = xmlReader("<test>text</test>")
                 reader.beginTag()

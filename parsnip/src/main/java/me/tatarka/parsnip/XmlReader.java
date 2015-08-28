@@ -17,6 +17,7 @@ public class XmlReader {
     private static final ByteString SINGLE_QUOTE_OR_AMP = ByteString.encodeUtf8("'&");
     private static final ByteString DOUBLE_QUOTE_OR_AMP = ByteString.encodeUtf8("\"&");
     private static final ByteString TAG_TERMINAL = ByteString.encodeUtf8("<>");
+    private static final ByteString CDATA = ByteString.encodeUtf8("<![CDATA[");
     private static final byte TEXT_END = (byte) '<';
     private static final byte TAG_END = (byte) '>';
     private static final byte SINGLE_QUOTE = (byte) '\'';
@@ -31,7 +32,8 @@ public class XmlReader {
     private static final int PEEKED_EMPTY_TAG = 5;
     private static final int PEEKED_END_TAG = 6;
     private static final int PEEKED_TEXT = 7;
-    private static final int PEEKED_EOF = 8;
+    private static final int PEEKED_CDATA = 8;
+    private static final int PEEKED_EOF = 9;
 
     private static final int STATE_BEFORE_DOCUMENT = 0;
     private static final int STATE_DOCUMENT = 1;
@@ -225,6 +227,10 @@ public class XmlReader {
             String result = nextTerminatedString(TEXT_END_TERMINAL);
             peeked = PEEKED_NONE;
             return result;
+        } else if (p == PEEKED_CDATA) {
+            String result = nextCdataString();
+            peeked = PEEKED_NONE;
+            return result;
         } else {
             throw new XmlDataException("Expected TEXT but was " + peek() + " at path " + getPath());
         }
@@ -299,6 +305,9 @@ public class XmlReader {
             case PEEKED_TEXT:
                 skipTerminatedString(TEXT_END);
                 break;
+            case PEEKED_CDATA:
+                skipCdataString();
+                break;
             case PEEKED_EOF:
                 throw new EOFException("End of input");
         }
@@ -323,6 +332,7 @@ public class XmlReader {
             case PEEKED_DOUBLE_QUOTED_VALUE:
                 return Token.VALUE;
             case PEEKED_TEXT:
+            case PEEKED_CDATA:
                 return Token.TEXT;
             case PEEKED_END_TAG:
             case PEEKED_EMPTY_TAG:
@@ -418,24 +428,40 @@ public class XmlReader {
             // a) starting a new tag
             // b) closing and existing tag
             // c) starting a comment.
+            // d) starting cdata
             fillBuffer(2);
             int next = buffer.getByte(1);
 
             if (next == '!') {
-                // We got a comment, make sure it looks like one. (why are xml comments so long?)
+                // We have either a comment or cdata, make sure it looks like one. (why are these so long?)
                 fillBuffer(4);
                 c = buffer.getByte(2);
-                if (c != '-') {
-                    throw syntaxError("Expected '-' but was '" + (char) c + "'");
+                if (c == '-') {
+                    // Comment (probably)
+                    c = buffer.getByte(3);
+                    if (c != '-') {
+                        throw syntaxError("Expected '-' but was '" + (char) c + "'");
+                    }
+                    skipTo("-->");
+                    fillBuffer(4);
+                    buffer.skip(3); // '-->'
+                    c = buffer.getByte(0);
+                } else if (c == '[') {
+                    int cdataSize = CDATA.size();
+                    fillBuffer(cdataSize);
+                    // cdata (probably)
+                    for (int i = 3; i < cdataSize; i++) {
+                        c = buffer.getByte(i);
+                        byte expected = CDATA.getByte(i);
+                        if (c != expected) {
+                            throw syntaxError("Expected '" + (char) expected + "' but was '" + (char) c + "'");
+                        }
+                    }
+                    buffer.skip(cdataSize);
+                    return peeked = PEEKED_CDATA;
+                } else {
+                    throw syntaxError("Expected '-' or '[' but was '" + (char) c + "'");
                 }
-                c = buffer.getByte(3);
-                if (c != '-') {
-                    throw syntaxError("Expected '-' but was '" + (char) c + "'");
-                }
-                skipTo("-->");
-                fillBuffer(4);
-                buffer.skip(3); // '-->'
-                c = buffer.getByte(0);
             } else if (next == '/') {
                 buffer.readByte(); // '<'
                 buffer.readByte(); // '/'
@@ -752,6 +778,52 @@ public class XmlReader {
                 return nextStringBuffer.readUtf8();
             }
         }
+    }
+
+    private String nextCdataString() throws IOException {
+        long start = 0;
+        while (true) {
+            long index = source.indexOf((byte) ']', start);
+            if (index == -1L) {
+                throw syntaxError("Unterminated CDATA");
+            }
+            start = index;
+            source.request(index + 2);
+            byte c = buffer.getByte(index + 1);
+            if (c != ']') {
+                continue;
+            }
+            c = buffer.getByte(index + 2);
+            if (c != '>') {
+                continue;
+            }
+            String result = buffer.readUtf8(index);
+            buffer.skip(3); // ]]>
+            return result;
+        }
+    }
+
+    private void skipCdataString() throws IOException {
+        long start = 0;
+        while (true) {
+            long index = source.indexOf((byte) ']', start);
+            if (index == -1L) {
+                throw syntaxError("Unterminated CDATA");
+            }
+            start = index;
+            source.request(index + 2);
+            byte c = buffer.getByte(index + 1);
+            if (c != ']') {
+                continue;
+            }
+            c = buffer.getByte(index + 2);
+            if (c != '>') {
+                continue;
+            }
+            buffer.skip(index + 3);
+            break;
+        }
+        peeked = PEEKED_NONE;
     }
 
     /**
