@@ -41,12 +41,12 @@ Parsnip has built-in support for reading and writing
 - Strings
 - enums
 
-It supports classes by writing them out field-by-field. Primaitves will be written out as attributes by default, classes will be written out has tags.
+It supports classes by writing them out field-by-field. Primaitves will be written out as attributes by default, classes will be written out as tags.
 
 If you have these classes:
 ```java
 class BlackjackHand {
-  public final Card hiddenCcard;
+  public final Card hiddenCard;
   public final List<Card> visibleCards;
   ...
 }
@@ -102,7 +102,7 @@ enum Suit {
 ```
 
 ### Text
-You can use the `@Text` annotations to read/write the text of a tag.
+You can use the `@Text` annotation to read/write the text of a tag.
 ```java
 class Card {
   @Text
