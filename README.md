@@ -63,7 +63,7 @@ enum Suit {
 ```
 
 Parsnip will read and write this xml:
-```java
+```xml
 <BlackjackHand>
   <hiddenCard rank="6" suit="SPADES"/>
   <Card rank="4" suit="CLUBS"/>
@@ -71,6 +71,7 @@ Parsnip will read and write this xml:
 </BlackjackHand>
 ```
 
+### Custom naming
 You can customzie the names of tags and attributes with `@SerializedName()`. The above example will look a little better as such:
 ```java
 class BlackjackHand {
@@ -92,10 +93,40 @@ enum Suit {
 }
 ```
 
-```java
+```xml
 <BlackjackHand>
   <HiddenCard rank="6" suit="SPADES"/>
   <VisibleCard rank="4" suit="CLUBS"/>
   <VisibleCard rank="A" suit="HEARTS"/>
 </BlackjackHand>
+```
+
+### Text
+You can use the `@Text` annotations to read/write the text of a tag.
+```java
+class Card {
+  @Text
+  public final char rank;
+  public final Suit suit;
+}
+```
+```xml
+<Card suit="SPADES">6</Card>
+```
+
+### Tag
+Often times you only care about the contents of a tag, not any of it's attributes. You can save some nesting in your hiarchy with the `@Tag` annotation.
+```java
+class Card {
+  @Tag
+  public final char rank;
+  @Tag
+  public final Suit suit;
+}
+```
+```xml
+<Card>
+ <rank>6</rank>
+ <suit>SPADES</suid>
+</Card>
 ```
