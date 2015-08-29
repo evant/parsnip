@@ -48,44 +48,54 @@ class ObjectSerializerSpecs : Spek() {
                     assertEquals("<StringObject string1=\"test\"/>", result)
                 }
             }
-            
+
             on("an object with an enum attribute field") {
                 val adapter = xml.adapter(javaClass<EnumObject>())
                 val enumObject = EnumObject(enum1 = TestEnum.One, enum2 = TestEnum.Two)
                 val result = adapter.toXml(enumObject)
-                
+
                 it("should write the enum attributes") {
                     assertEquals("<EnumObject enum1=\"One\" enum2=\"Two\"/>", result)
                 }
             }
-            
+
             on("an object with a text field") {
                 val adapter = xml.adapter(javaClass<TextObject>())
                 val textObject = TextObject(text = "test")
                 val result = adapter.toXml(textObject)
-                
+
                 it("should write the tag with text") {
                     assertEquals("<TextObject>test</TextObject>", result)
                 }
             }
-            
+
             on("an object with a tag field") {
                 val adapter = xml.adapter(javaClass<TagObject>())
                 val tagObject = TagObject(text = "test")
                 val result = adapter.toXml(tagObject)
-                
+
                 it("should write the text as a tag") {
                     assertEquals("<TagObject><text>test</text></TagObject>", result)
                 }
             }
-            
+
             on("an object with a nested one") {
                 val adapter = xml.adapter(javaClass<NestedObject>())
                 val nestedObject = NestedObject(StringObject(string1 = "test", string2 = null))
                 val result = adapter.toXml(nestedObject)
-                
+
                 it("should write nested tags") {
                     assertEquals("<NestedObject><nested string1=\"test\"/></NestedObject>", result)
+                }
+            }
+
+            on("an object with a namespace attribute") {
+                val adapter = xml.adapter(javaClass<NamespaceObject>())
+                val namespaceObject = NamespaceObject("value", StringObject("value", null))
+                val result = adapter.toXml(namespaceObject)
+
+                it("should write a namespaced attribute") {
+                    assertEquals("<NamespaceObject xmlns:ns=\"foo\" ns:attribute=\"value\"><ns:StringObject string1=\"value\"/></NamespaceObject>", result)
                 }
             }
         }

@@ -1,7 +1,6 @@
 package me.tatarka.parsnip
 
 import me.tatarka.parsnip.classes.*
-import me.tatarka.parsnip.Xml
 import org.jetbrains.spek.api.Spek
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -125,6 +124,19 @@ class ObjectDeserializerSpecs : Spek() {
 
                 it("should read the items into a collection") {
                     assertEquals(listOf(StringObject("test1", null), StringObject("test2", null)), collectionObject.collection)
+                }
+            }
+
+            on("an object with namespaces") {
+                val adapter = xml.adapter(javaClass<NamespaceObject>())
+                val namespaceObject = adapter.fromXml("<NamespaceObject xmlns:ns=\"foo\" ns:attribute=\"value\" attribute=\"notValue\"><ns:StringObject string1=\"test\"/></NamespaceObject>")
+
+                it("should read the namespaced attribute, not the other one") {
+                    assertEquals("value", namespaceObject.attribute)
+                }
+
+                it("should read the namespaced tag") {
+                    assertEquals(StringObject("test", null), namespaceObject.tag)
                 }
             }
         }
