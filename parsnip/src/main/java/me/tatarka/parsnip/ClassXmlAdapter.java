@@ -321,7 +321,7 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
     private static FieldBinding getFieldBindingTags(ArrayList<? extends TagFieldBinding> fields, String name, @Nullable Namespace namespace) {
         for (int i = 0, size = fields.size(); i < size; i++) {
             TagFieldBinding fieldBinding = fields.get(i);
-            if (fieldBinding.name.equals(name) && equals(namespace, fieldBinding.namespace)) {
+            if (fieldBinding.name.equals(name) && nsEquals(fieldBinding.namespace, namespace)) {
                 return fieldBinding;
             }
         }
@@ -331,18 +331,18 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
     private static FieldBinding getFieldBindingAttributes(ArrayList<? extends AttributeFieldBinding> fields, String name, @Nullable Namespace namespace) {
         for (int i = 0, size = fields.size(); i < size; i++) {
             AttributeFieldBinding fieldBinding = fields.get(i);
-            if (fieldBinding.name.equals(name) && equals(namespace, fieldBinding.namespace)) {
+            if (fieldBinding.name.equals(name) && nsEquals(fieldBinding.namespace, namespace)) {
                 return fieldBinding;
             }
         }
         return null;
     }
 
-    private static boolean equals(@Nullable Namespace one, @Nullable Namespace two) {
-        if (one == null && two == null) return true;
-        if (one == null) return two.namespace == null;
-        if (two == null) return one.namespace == null;
-        return one.equals(two);
+    private static boolean nsEquals(@Nullable Namespace expected, @Nullable Namespace actual) {
+        // All namespaces match if none expected.
+        if (expected == null) return true;
+        if (actual == null) return expected.namespace == null;
+        return expected.equals(actual);
     }
 
     private static abstract class FieldBinding<T> {

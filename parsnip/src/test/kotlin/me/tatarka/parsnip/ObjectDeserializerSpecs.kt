@@ -152,6 +152,15 @@ class ObjectDeserializerSpecs : Spek() {
                     assertEquals(StringObject("value", null), sameNameObject.tag)
                 }
             }
+            
+            on("an object without a namespace but xml with it") {
+                val adapter = xml.adapter(javaClass<StringObject>())
+                val stringObject = adapter.fromXml("<StringObject xmlns:ns=\"foo\" ns:string1=\"value\"/>")
+                
+                it("should read the attribute ignoring the namespace") {
+                    assertEquals("value", stringObject.string1)
+                }
+            }
         }
     }
 }
