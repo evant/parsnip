@@ -95,7 +95,17 @@ class ObjectSerializerSpecs : Spek() {
                 val result = adapter.toXml(namespaceObject)
 
                 it("should write a namespaced attribute") {
-                    assertEquals("<NamespaceObject xmlns:ns=\"foo\" ns:attribute=\"value\"><ns:StringObject string1=\"value\"/></NamespaceObject>", result)
+                    assertEquals("<NamespaceObject xmlns:ns=\"foo\" ns:attribute=\"value\"><ns:tag string1=\"value\"/></NamespaceObject>", result)
+                }
+            }
+            
+            on("an object with an attribute and tag of the same name") {
+                val adapter = xml.adapter(javaClass<SameNameObject>())
+                val sameNameObject = SameNameObject("value", StringObject("value", null))
+                val result = adapter.toXml(sameNameObject)
+                
+                it("should write the attribute and tag of the same name") {
+                    assertEquals("<SameNameObject name=\"value\"><name string1=\"value\"/></SameNameObject>", result)
                 }
             }
         }

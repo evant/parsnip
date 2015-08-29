@@ -225,17 +225,13 @@ public class XmlWriter implements Closeable, Flushable {
      * Declare a namespace with the given name. It will either be declared on the current tag or the
      * next one if there isn't a current one.
      *
-     * @param namespace the out namespace object, pass to {@link #beginTag(Namespace, String)} or
-     *                  {@link #name(Namespace, String)} to reference the namespace. You should take
-     *                  care to not pass a namespace that is not defined in the current scope. Feel
-     *                  free to use the same one multiple times to reduce allocations.
-     * @param alias     the namespace alias (xmlns:foo).
-     * @param ns        the namespace (http://www.example.com).
+     * @param namespace The namespace object, pass to {@link #beginTag(Namespace, String)} or {@link
+     *                  #name(Namespace, String)} to reference the namespace. You should take care
+     *                  to not pass a namespace that is not defined in the current scope. Feel free
+     *                  to use the same one multiple times to reduce allocations.
      * @return this writer.
      */
-    public XmlWriter namespace(Namespace namespace, String alias, String ns) throws IOException {
-        namespace.namespace = ns;
-        namespace.alias = alias;
+    public XmlWriter namespace(Namespace namespace) throws IOException {
         if (state == STATE_TAG) {
             declareNamespace(namespace);
         } else if (state == STATE_BEFORE_DOCUMENT || state == STATE_AFTER_TAG) {

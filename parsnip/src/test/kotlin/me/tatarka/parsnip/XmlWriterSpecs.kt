@@ -97,9 +97,9 @@ class XmlWriterSpecs : Spek() {
             }
 
             on("a tag with a namespace declaration") {
-                val namespace = Namespace()
+                val namespace = Namespace("ns", "foo")
                 val result = xmlWriter {
-                    it.beginTag("test").namespace(namespace, "ns", "foo").endTag()
+                    it.beginTag("test").namespace(namespace).endTag()
                 }
 
                 it("should write the tag with the declared namespace") {
@@ -113,9 +113,9 @@ class XmlWriterSpecs : Spek() {
             }
 
             on("a tag with a namespace") {
-                val namespace = Namespace()
+                val namespace = Namespace("ns", "foo")
                 val result = xmlWriter {
-                    it.namespace(namespace, "ns", "foo").beginTag(namespace, "test").endTag()
+                    it.namespace(namespace).beginTag(namespace, "test").endTag()
                 }
 
                 it("should write the namespace declaration and prefix the tag") {
@@ -129,10 +129,10 @@ class XmlWriterSpecs : Spek() {
             }
 
             on("a tag with a namespaced attribute") {
-                val namespace = Namespace()
+                val namespace = Namespace("ns", "foo")
                 val result = xmlWriter {
                     it.beginTag("test")
-                            .namespace(namespace, "ns", "foo")
+                            .namespace(namespace)
                             .name(namespace, "attribute").value("value")
                             .endTag()
                 }

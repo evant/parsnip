@@ -129,7 +129,7 @@ class ObjectDeserializerSpecs : Spek() {
 
             on("an object with namespaces") {
                 val adapter = xml.adapter(javaClass<NamespaceObject>())
-                val namespaceObject = adapter.fromXml("<NamespaceObject xmlns:ns=\"foo\" ns:attribute=\"value\" attribute=\"notValue\"><ns:StringObject string1=\"test\"/></NamespaceObject>")
+                val namespaceObject = adapter.fromXml("<NamespaceObject xmlns:ns=\"foo\" ns:attribute=\"value\" attribute=\"notValue\"><ns:tag string1=\"test\"/></NamespaceObject>")
 
                 it("should read the namespaced attribute, not the other one") {
                     assertEquals("value", namespaceObject.attribute)
@@ -137,6 +137,19 @@ class ObjectDeserializerSpecs : Spek() {
 
                 it("should read the namespaced tag") {
                     assertEquals(StringObject("test", null), namespaceObject.tag)
+                }
+            }
+            
+            on("an attribute and tag of the same name") {
+                val adapter = xml.adapter(javaClass<SameNameObject>())
+                val sameNameObject = adapter.fromXml("<SameNameObject name=\"value\"><name string1=\"value\"/></SameNameObject>")
+                
+                it("should read the attribute") {
+                    assertEquals("value", sameNameObject.attribute)
+                }
+                
+                it("should read the tag") {
+                    assertEquals(StringObject("value", null), sameNameObject.tag)
                 }
             }
         }
