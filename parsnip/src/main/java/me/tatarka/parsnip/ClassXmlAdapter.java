@@ -8,6 +8,9 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -18,7 +21,8 @@ import me.tatarka.parsnip.annotations.SerializedName;
 import me.tatarka.parsnip.annotations.Text;
 
 final class ClassXmlAdapter<T> extends XmlAdapter<T> {
-    // Unique name for text attribute, so it can be in the map with everything else. 
+
+    // Unique name for text attribute, so it can be in the map with everything else.
     private static final String TEXT = "!me.tatarka.parsnip.text";
 
     static final Factory FACTORY = new Factory() {
@@ -44,14 +48,15 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
 
             ClassFactory<Object> classFactory = ClassFactory.get(rawType);
             Map<String, FieldBinding> fields = new TreeMap<>();
+            Map<me.tatarka.parsnip.annotations.Namespace, Namespace> namespaces = new LinkedHashMap<>();
             for (Type t = type; t != Object.class; t = Types.getGenericSuperclass(t)) {
-                createFieldBindings(adapters, t, fields);
+                createFieldBindings(adapters, t, fields, namespaces);
             }
-            return new ClassXmlAdapter<>(classFactory, fields);
+            return new ClassXmlAdapter<>(classFactory, fields, namespaces);
         }
 
         /** Creates a field binding for each of declared field of {@code type}. */
-        private void createFieldBindings(XmlAdapters adapters, Type type, Map<String, FieldBinding> fields) {
+        private void createFieldBindings(XmlAdapters adapters, Type type, Map<String, FieldBinding> fields, Map<me.tatarka.parsnip.annotations.Namespace, Namespace> namespaces) {
             Class<?> rawType = Types.getRawType(type);
             boolean platformType = isPlatformType(rawType);
             for (Field field : rawType.getDeclaredFields()) {
@@ -91,7 +96,7 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
                     } else {
                         XmlAdapter<?> adapter = adapters.adapter(fieldType, annotations);
                         FieldBinding<?> fieldBinding;
-                        String name = getFieldName(field);
+                        String name = getFieldName(field, namespaces);
                         if (adapter != null) {
                             fieldBinding = new TagFieldBinding<>(field, name, adapter);
                         } else {
@@ -99,7 +104,9 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
                             if (converter == null) {
                                 throw new IllegalArgumentException("No XmlAdapter or TypeConverter for type " + fieldType + " and annotations " + annotations);
                             }
-                            fieldBinding = new AttributeFieldBinding<>(field, name, converter);
+                            me.tatarka.parsnip.annotations.Namespace namespace = field.getAnnotation(me.tatarka.parsnip.annotations.Namespace.class);
+                            fieldBinding = new AttributeFieldBinding<>(field, name, namespace, converter, namespaces);
+                            name = appendNamespace(name, namespace);
                         }
                         FieldBinding replaced = fields.put(name, fieldBinding);
                         // Store it using the field's name. If there was already a field with this name, fail!
@@ -130,15 +137,26 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
         }
 
         /**
-         * Returns the field name, taking into account the @SerializeName annotation.
+         * Returns the field name, taking into account the @SerializeName and @Namespace annotations.
          */
-        private String getFieldName(Field field) {
+        private String getFieldName(Field field, Map<me.tatarka.parsnip.annotations.Namespace, Namespace> namespaces) {
             SerializedName serializedName = field.getAnnotation(SerializedName.class);
+            me.tatarka.parsnip.annotations.Namespace namespace = field.getAnnotation(me.tatarka.parsnip.annotations.Namespace.class);
+            if (namespace != null) {
+                namespaces.put(namespace, null);
+            }
             if (serializedName != null) {
                 return serializedName.value();
             } else {
                 return field.getName();
             }
+        }
+
+        private String appendNamespace(String name, me.tatarka.parsnip.annotations.Namespace namespace) {
+            if (namespace == null) {
+                return name;
+            }
+            return "{" + namespace.value() + "}" + name;
         }
 
         /**
@@ -163,10 +181,23 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
 
     private final me.tatarka.parsnip.ClassFactory<T> classFactory;
     private final Map<String, FieldBinding> fields;
+    private final Map<me.tatarka.parsnip.annotations.Namespace, Namespace> namespaces;
+    // List of fields orders with attributes first.
+    private final List<FieldBinding> fieldList;
 
-    private ClassXmlAdapter(me.tatarka.parsnip.ClassFactory<T> classFactory, Map<String, FieldBinding> fields) {
+    private ClassXmlAdapter(me.tatarka.parsnip.ClassFactory<T> classFactory, Map<String, FieldBinding> fields, Map<me.tatarka.parsnip.annotations.Namespace, Namespace> namespaces) {
         this.classFactory = classFactory;
         this.fields = fields;
+        this.namespaces = namespaces;
+
+        fieldList = new ArrayList<>(fields.size());
+        for (FieldBinding fieldBinding : fields.values()) {
+            if (fieldBinding instanceof AttributeFieldBinding) {
+                fieldList.add(0, fieldBinding);
+            } else {
+                fieldList.add(fieldBinding);
+            }
+        }
     }
 
     @Override
@@ -197,12 +228,13 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
         }
 
         try {
+            Namespace namespace = new Namespace();
             XmlReader.Token token = reader.peek();
             while (token != XmlReader.Token.END_TAG) {
                 switch (token) {
                     case ATTRIBUTE: {
-                        String name = reader.nextAttribute();
-                        FieldBinding fieldBinding = fields.get(name);
+                        String name = reader.nextAttribute(namespace);
+                        FieldBinding fieldBinding = getFieldBinding(name, namespace);
                         if (fieldBinding != null) {
                             fieldBinding.read(reader, result);
                         } else {
@@ -245,12 +277,27 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
     @Override
     public void toXml(XmlWriter writer, T value) throws IOException {
         try {
-            for (Map.Entry<String, FieldBinding> entry : fields.entrySet()) {
-                FieldBinding fieldBinding = entry.getValue();
+            if (!namespaces.isEmpty()) {
+                for (me.tatarka.parsnip.annotations.Namespace namespace : namespaces.keySet()) {
+                    Namespace ns = new Namespace();
+                    writer.namespace(ns, namespace.alias(), namespace.value());
+                    namespaces.put(namespace, ns);
+                }
+            }
+
+            for (FieldBinding fieldBinding : fieldList) {
                 fieldBinding.write(writer, value);
             }
         } catch (IllegalAccessException e) {
             throw new AssertionError(e);
+        }
+    }
+
+    private FieldBinding getFieldBinding(String name, Namespace namespace) {
+        if (namespace.namespace == null) {
+            return fields.get(name);
+        } else {
+            return fields.get("{" + namespace.namespace + "}" + name);
         }
     }
 
@@ -305,12 +352,16 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
 
     private static class AttributeFieldBinding<T> extends FieldBinding<T> {
         final String name;
+        final me.tatarka.parsnip.annotations.Namespace namespace;
         final TypeConverter<T> converter;
+        final Map<me.tatarka.parsnip.annotations.Namespace, Namespace> namespaces;
 
-        AttributeFieldBinding(Field field, String name, TypeConverter<T> converter) {
+        AttributeFieldBinding(Field field, String name, me.tatarka.parsnip.annotations.Namespace namespace, TypeConverter<T> converter, Map<me.tatarka.parsnip.annotations.Namespace, Namespace> namespaces) {
             super(field);
             this.name = name;
+            this.namespace = namespace;
             this.converter = converter;
+            this.namespaces = namespaces;
         }
 
         @Override
@@ -320,7 +371,13 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
 
         @Override
         void writeValue(XmlWriter writer, T value) throws IOException {
-            writer.name(name).value(converter.to(value));
+            if (namespace == null) {
+                writer.name(name);
+            } else {
+                Namespace ns = namespaces.get(namespace);
+                writer.name(ns, name);
+            }
+            writer.value(converter.to(value));
         }
     }
 

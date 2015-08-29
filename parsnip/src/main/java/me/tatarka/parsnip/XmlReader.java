@@ -166,10 +166,10 @@ public class XmlReader {
             for (int i = 0; i < attributeSize; i++) {
                 String name = attributeNames[i];
                 if (attribute.equals(name)) {
-                    if (namespace.namespace == null) {
+                    String namespaceName = attributeNamespaces[i];
+                    if (namespace.namespace == null && namespaceName == null) {
                         throw new XmlDataException("Duplicate attribute '" + name + "' at path " + getPath());
-                    } else {
-                        String namespaceName = attributeNamespaces[i];
+                    } else if (namespace.namespace != null) {
                         if (namespace.namespace.equals(namespaceName)) {
                             throw new XmlDataException("Duplicate attribute '{" + namespace + "}" + name + "' at path " + getPath());
                         }
