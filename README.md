@@ -131,6 +131,23 @@ class Card {
 </Card>
 ```
 
+### Namespace
+By default, any namespace on an element will be ignored. If you want to enforce a namespace, you can use the `@Namespace` annotation.
+
+```java
+class Card {
+  @Namespace("http://example.com", alias="ns")
+  public final char rank;
+}
+```
+will read
+```xml
+<Card xmlns:ns="http://example.com" rank="ignored" ns:rank="6"/>
+```
+as `6`.
+
+When writing xml, the given alias will be used.
+
 ## License
 
     Copyright 2015 Evan Tatarka
