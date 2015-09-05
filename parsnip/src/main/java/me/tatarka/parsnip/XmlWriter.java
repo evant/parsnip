@@ -118,8 +118,8 @@ public class XmlWriter implements Closeable, Flushable {
      * Begins encoding a new xml tag. Each call to this method must be paired with a call to {@link
      * #endTag()}.
      *
-     * @param namespace the namespace for the tag, created by {@link #namespace(Namespace, String,
-     *                  String)}, may be null.
+     * @param namespace the namespace for the tag, created by {@link #namespace(Namespace)}, may be
+     *                  null.
      * @param name      the name of the tag, must not be null.
      * @return this writer.
      */
@@ -175,8 +175,8 @@ public class XmlWriter implements Closeable, Flushable {
      * Encodes the attribute name. Each call to this method must be paired with {@link
      * #value(String)}.
      *
-     * @param namespace the namespace for the tag, created by {@link #namespace(Namespace, String,
-     *                  String)}, may be null.
+     * @param namespace the namespace for the tag, created by {@link #namespace(Namespace)}, may be
+     *                  null.
      * @param name      the name of the attribute, must not be null.
      * @return this writer.
      */
