@@ -75,8 +75,9 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
                     CollectionFactory collectionFactory = rawFieldType == List.class || rawFieldType == Collection.class
                             ? ARRAY_LIST_COLLECTION_FACTORY : LINKED_HASH_SET_COLLECTION_FACTORY;
                     String name = getCollectionFieldName(field, rawElementType);
-                    XmlAdapter<?> adapter = adapters.adapter(elementType, annotations);
-                    tags.add(new CollectionFieldBinding<>(field, name, /*TODO*/null, adapter, collectionFactory));
+                    Namespace namespace = getNamespace(field);
+                    XmlAdapter<?> adapter = adapters.adapter(rawElementType, annotations);
+                    tags.add(new CollectionFieldBinding<>(field, name, namespace, adapter, collectionFactory));
                 } else {
                     if (field.isAnnotationPresent(Text.class)) {
                         TypeConverter<?> converter = adapters.converter(fieldType, annotations);

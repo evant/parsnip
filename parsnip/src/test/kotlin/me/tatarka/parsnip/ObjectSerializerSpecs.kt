@@ -71,11 +71,11 @@ class ObjectSerializerSpecs : Spek() {
 
             on("an object with a tag field") {
                 val adapter = xml.adapter(javaClass<TagObject>())
-                val tagObject = TagObject(text = "test")
+                val tagObject = TagObject(text = "test", items = listOf("test1", "test2"))
                 val result = adapter.toXml(tagObject)
 
                 it("should write the text as a tag") {
-                    assertEquals("<TagObject><text>test</text></TagObject>", result)
+                    assertEquals("<TagObject><text>test</text><item>test1</item><item>test2</item></TagObject>", result)
                 }
             }
 
@@ -91,11 +91,11 @@ class ObjectSerializerSpecs : Spek() {
 
             on("an object with a namespace attribute") {
                 val adapter = xml.adapter(javaClass<NamespaceObject>())
-                val namespaceObject = NamespaceObject("value", StringObject("value", null))
+                val namespaceObject = NamespaceObject("value", StringObject("value", null), listOf(StringObject("test1", null), StringObject("test2", null)))
                 val result = adapter.toXml(namespaceObject)
 
                 it("should write a namespaced attribute") {
-                    assertEquals("<NamespaceObject xmlns:ns=\"foo\" ns:attribute=\"value\"><ns:tag string1=\"value\"/></NamespaceObject>", result)
+                    assertEquals("<NamespaceObject xmlns:ns=\"foo\" ns:attribute=\"value\"><ns:tag string1=\"value\"/><ns:StringObject string1=\"test1\"/><ns:StringObject string1=\"test2\"/></NamespaceObject>", result)
                 }
             }
             

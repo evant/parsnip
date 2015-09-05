@@ -851,15 +851,17 @@ public class XmlReader {
             throw syntaxError("Unterminated entity sequence");
         }
 
-        if (buffer.getByte(0) == '#') {
+        String entity = buffer.readUtf8(index);
+        buffer.readByte(); // ';'
+        
+        if (entity.charAt(0) == '#') {
             int result = 0;
 
-            if (buffer.getByte(1) == 'x') {
+            if (entity.charAt(1) == 'x') {
                 int len = (int) (index - 2);
-                buffer.skip(2); // '#x'
 
-                for (int i = 0, end = i + len; i < end; i++) {
-                    byte c = buffer.getByte(i);
+                for (int i = 2 /* #x */, end = i + len; i < end; i++) {
+                    int c = entity.charAt(i);
                     result <<= 4;
                     if (c >= '0' && c <= '9') {
                         result += (c - '0');
@@ -868,14 +870,11 @@ public class XmlReader {
                     } else if (c >= 'A' && c <= 'F') {
                         result += (c - 'A' + 10);
                     } else {
-                        throw syntaxError("&#x" + buffer.readUtf8(len));
+                        throw syntaxError(entity);
                     }
                 }
-
-                buffer.skip(len + 1);
             } else {
                 int len = (int) (index - 1);
-                buffer.readByte(); // '#'
 
                 // 10^(len-1)
                 int n = 1;
@@ -883,23 +882,18 @@ public class XmlReader {
                     n *= 10;
                 }
 
-                for (int i = 0, end = i + len; i < end; i++) {
-                    byte c = buffer.getByte(i);
+                for (int i = 1 /* # */, end = i + len; i < end; i++) {
+                    int c = entity.charAt(i);
                     if (c >= '0' && c <= '9') {
                         result += n * (c - '0');
                     } else {
-                        throw syntaxError("&#" + buffer.readUtf8(len));
+                        throw syntaxError(entity);
                     }
                     n /= 10;
                 }
-
-                buffer.skip(len + 1);
             }
             outputBuffer.writeUtf8CodePoint(result);
         } else {
-            String entity = buffer.readUtf8(index);
-            buffer.readByte(); // ';'
-
             switch (entity) {
                 case "quot":
                     outputBuffer.writeByte('"');
