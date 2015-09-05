@@ -1,3 +1,5 @@
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/me.tatarka/parsnip/badge.svg?style=flat)](https://maven-badges.herokuapp.com/maven-central/me.tatarka/parsnip)
+
 # parsnip
  A modern XML library for Android and Java
 
@@ -11,6 +13,20 @@
 - Doesn't support custom entities
 
 ## Usage
+
+### Download
+
+```groovy
+compile 'me.tatarka:parsnip:0.1'
+```
+
+```xml
+<dependency>
+    <groupId>me.tatarka</groupId>
+    <artifactId>parsnip</artifactId>
+    <version>0.1</version>
+</dependency>
+```
 
 ### Parsing into objects
 ```java
