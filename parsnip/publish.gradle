@@ -1,0 +1,53 @@
+apply plugin: 'maven'
+apply plugin: 'signing'
+
+signing {
+    sign configurations.archives
+}
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            beforeDeployment { deployment -> signing.signPom(deployment) }
+
+            repository(url: 'https://oss.sonatype.org/service/local/staging/deploy/maven2/') {
+                authentication(
+                        userName: project.getProperty('sonatype.username'),
+                        password: project.getProperty('sonatype.password'))
+            }
+
+            snapshotRepository(url: 'https://oss.sonatype.org/content/repositories/snapshots') {
+                authentication(
+                        userName: project.getProperty('sonatype.username'),
+                        password: project.getProperty('sonatype.password'))
+            }
+
+            pom.project {
+                name 'Parsnip'
+                description 'A modern XML library for Android and Java'
+                url 'https://github.com/evant/parsnip'
+
+                scm {
+                    url 'git@github.com:evant/parsnip.git'
+                    connection 'scm:git:git@github.com:evant/parsnip.git'
+                    developerConnection 'scm:git:git@github.com:evant/parsnip.git'
+                }
+
+                licenses {
+                    license {
+                        name 'The Apache Software License, Version 2.0'
+                        url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        distribution 'repo'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id 'evant'
+                        name 'Evan Tatarka'
+                    }
+                }
+            }
+        }
+    }
+}

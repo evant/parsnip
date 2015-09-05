@@ -1,7 +1,5 @@
 package me.tatarka.parsnip;
 
-import org.jetbrains.annotations.Nullable;
-
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
@@ -20,12 +18,10 @@ public class XmlAdapters {
         this.typeConverterFactories = Collections.unmodifiableList(typeConverterFactories);
     }
 
-    @Nullable
     public <T> XmlAdapter<T> adapter(Type type, Set<? extends Annotation> annotations) {
         return createAdapter(0, type, annotations);
     }
 
-    @Nullable
     public <T> XmlAdapter<T> nextAdapter(XmlAdapter.Factory skipPast, Type type, Set<? extends Annotation> annotations) {
         return createAdapter(factories.indexOf(skipPast) + 1, type, annotations);
     }
@@ -41,17 +37,14 @@ public class XmlAdapters {
         return new RootAdapter<>(name, adapter);
     }
 
-    @Nullable
     public <T> TypeConverter<T> converter(Type type, Set<? extends Annotation> annotations) {
         return createConverter(0, type, annotations);
     }
 
-    @Nullable
     public <T> TypeConverter<T> nextConverter(TypeConverter.Factory skipPast, Type type, Set<? extends Annotation> annotations) {
         return createConverter(typeConverterFactories.indexOf(skipPast) + 1, type, annotations);
     }
 
-    @Nullable
     @SuppressWarnings("unchecked") // Factories are required to return only matching XmlAdapters.
     private <T> XmlAdapter<T> createAdapter(int firstIndex, Type type, Set<? extends Annotation> annotations) {
         List<DeferredAdapter<?>> deferredAdapters = reentrantCalls.get();
@@ -83,7 +76,6 @@ public class XmlAdapters {
         return null;
     }
 
-    @Nullable
     @SuppressWarnings("unchecked") // Factories are required to return only matching TypeConverters.
     private <T> TypeConverter<T> createConverter(int firstIndex, Type type, Set<? extends Annotation> annotations) {
         for (int i = firstIndex, size = typeConverterFactories.size(); i < size; i++) {

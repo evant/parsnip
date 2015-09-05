@@ -1,7 +1,5 @@
 package me.tatarka.parsnip;
 
-import org.jetbrains.annotations.Nullable;
-
 /**
  * Represents an xml namespace.
  */
@@ -12,7 +10,7 @@ public final class Namespace {
     public Namespace() {
     }
    
-    public Namespace(@Nullable String alias, @Nullable String namespace) {
+    public Namespace(String alias, String namespace) {
         this.alias = alias;
         this.namespace = namespace;
     }
@@ -21,7 +19,6 @@ public final class Namespace {
      * The namespace alias (xmlns:foo). This may be null if there is no namespace or this represents
      * a default namespace.
      */
-    @Nullable
     public String alias() {
         return alias;
     }
@@ -29,7 +26,6 @@ public final class Namespace {
     /**
      * The namespace (http://www.example.com). This may be null if there is no namespace.
      */
-    @Nullable
     public String namespace() {
         return namespace;
     }

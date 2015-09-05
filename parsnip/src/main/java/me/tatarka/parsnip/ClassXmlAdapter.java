@@ -1,7 +1,5 @@
 package me.tatarka.parsnip;
 
-import org.jetbrains.annotations.Nullable;
-
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
@@ -156,7 +154,6 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
         /**
          * Returns the field namespace, if it exists.
          */
-        @Nullable
         private Namespace getNamespace(Field field) {
             me.tatarka.parsnip.annotations.Namespace namespace = field.getAnnotation(me.tatarka.parsnip.annotations.Namespace.class);
             if (namespace == null) return null;
@@ -319,7 +316,7 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
         }
     }
 
-    private static FieldBinding getFieldBindingTags(ArrayList<? extends TagFieldBinding> fields, String name, @Nullable Namespace namespace) {
+    private static FieldBinding getFieldBindingTags(ArrayList<? extends TagFieldBinding> fields, String name, Namespace namespace) {
         for (int i = 0, size = fields.size(); i < size; i++) {
             TagFieldBinding fieldBinding = fields.get(i);
             if (fieldBinding.name.equals(name) && nsEquals(fieldBinding.namespace, namespace)) {
@@ -329,7 +326,7 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
         return null;
     }
 
-    private static FieldBinding getFieldBindingAttributes(ArrayList<? extends AttributeFieldBinding> fields, String name, @Nullable Namespace namespace) {
+    private static FieldBinding getFieldBindingAttributes(ArrayList<? extends AttributeFieldBinding> fields, String name, Namespace namespace) {
         for (int i = 0, size = fields.size(); i < size; i++) {
             AttributeFieldBinding fieldBinding = fields.get(i);
             if (fieldBinding.name.equals(name) && nsEquals(fieldBinding.namespace, namespace)) {
@@ -339,7 +336,7 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
         return null;
     }
 
-    private static boolean nsEquals(@Nullable Namespace expected, @Nullable Namespace actual) {
+    private static boolean nsEquals(Namespace expected, Namespace actual) {
         // All namespaces match if none expected.
         if (expected == null) return true;
         if (actual == null) return expected.namespace == null;
@@ -372,11 +369,10 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
 
     private static class TagFieldBinding<T> extends FieldBinding<T> {
         final String name;
-        @Nullable
         final Namespace namespace;
         final XmlAdapter<T> adapter;
 
-        TagFieldBinding(Field field, String name, @Nullable Namespace namespace, XmlAdapter<T> adapter) {
+        TagFieldBinding(Field field, String name, Namespace namespace, XmlAdapter<T> adapter) {
             super(field);
             this.name = name;
             this.namespace = namespace;
@@ -404,11 +400,10 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
 
     private static class AttributeFieldBinding<T> extends FieldBinding<T> {
         final String name;
-        @Nullable
         final Namespace namespace;
         final TypeConverter<T> converter;
 
-        AttributeFieldBinding(Field field, String name, @Nullable Namespace namespace, TypeConverter<T> converter) {
+        AttributeFieldBinding(Field field, String name, Namespace namespace, TypeConverter<T> converter) {
             super(field);
             this.name = name;
             this.namespace = namespace;
