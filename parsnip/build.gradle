@@ -15,7 +15,7 @@
  */
 
 group 'me.tatarka'
-version '0.1-SNAPSHOT'
+version '0.1'
 
 buildscript {
     ext.kotlin_version = '0.12.1230'
