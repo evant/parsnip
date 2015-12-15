@@ -14,5 +14,13 @@
  * limitations under the License.
  */
 
-include ':parsnip', ':benchmark', ':retrofit-converter'
+package me.tatarka.parsnip.benchmark;
 
+import me.tatarka.parsnip.benchmark.model.Tweets;
+import retrofit.Call;
+import retrofit.http.GET;
+
+public interface TestService {
+    @GET("/tweets")
+    Call<Tweets> getTweets();
+}

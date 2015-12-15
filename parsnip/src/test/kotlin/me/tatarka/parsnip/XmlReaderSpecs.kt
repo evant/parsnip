@@ -381,12 +381,22 @@ class XmlReaderSpecs : Spek() {
             }
 
             on("a tag with cdata text") {
-                val reader = xmlReader("<test><![CDATA[<test>text</test>]]></test")
+                val reader = xmlReader("<test><![CDATA[<a>text</b>]]></test>")
                 reader.beginTag()
                 val text = reader.nextText()
 
                 it ("should read the cdata ignoring the xml characters") {
-                    assertEquals("<test>text</test>", text)
+                    assertEquals("<a>text</b>", text)
+                }
+            }
+            
+            on("a tag with stuff before and after the cdata") {
+                val reader = xmlReader("<test>a<![CDATA[<a>text</b>]]>b</test>")
+                reader.beginTag()
+                val text = reader.nextText()
+
+                it ("should read the cdata ignoring the xml characters") {
+                    assertEquals("a<a>text</b>b", text)
                 }
             }
 
@@ -611,8 +621,19 @@ class XmlReaderSpecs : Spek() {
                 }
             }
 
-            on("skip CDATA text") {
-                val reader = xmlReader("<test><![CDATA[<test>text</test>]]></test>")
+            on("skip cdata text") {
+                val reader = xmlReader("<test><![CDATA[<a>text</b>]]></test>")
+                reader.beginTag()
+                reader.skip()
+                val token = reader.peek()
+
+                it ("should peek an END_TAG") {
+                    assertEquals(XmlReader.Token.END_TAG, token)
+                }
+            }
+
+            on("skip cdata text with other content") {
+                val reader = xmlReader("<test>a<![CDATA[<a>text</b>]]>b</test>")
                 reader.beginTag()
                 reader.skip()
                 val token = reader.peek()
@@ -699,6 +720,51 @@ class XmlReaderSpecs : Spek() {
 
                 it ("should peek an END_TAG") {
                     assertEquals(XmlReader.Token.END_TAG, token)
+                }
+            }
+
+            on("skip a tag with cdata") {
+                val reader = xmlReader("<test><![CDATA[<a>test</b>]]></test>")
+                reader.beginTag()
+                reader.skipTag()
+                val token = reader.peek()
+
+                it ("should peek an END_DOCUMENT") {
+                    assertEquals(XmlReader.Token.END_DOCUMENT, token)
+                }
+            }
+
+            on("skip a tag with nested tag with attribute") {
+                val reader = xmlReader("<test1><test2 attribute=\"value\"/></test1>")
+                reader.beginTag()
+                reader.skipTag()
+                val token = reader.peek()
+
+                it ("should peek an END_DOCUMNET") {
+                    assertEquals(XmlReader.Token.END_DOCUMENT, token)
+                }
+            }
+            
+            on("skip a tag with nested tag with attribute and text") {
+                val reader = xmlReader("<test1><test2 attribute=\"value\">text</test2></test1>")
+                reader.beginTag()
+                reader.beginTag()
+                reader.skipTag()
+                val token = reader.peek()
+
+                it ("should peek an END_TAG") {
+                    assertEquals(XmlReader.Token.END_TAG, token)
+                }
+            }
+            
+            on("skip two inner self closing tags") {
+                val reader = xmlReader("<test1><test2/><test3/></test1>")
+                reader.beginTag()
+                reader.skipTag()
+                val token = reader.peek()
+
+                it ("should peek an END_DOCUMENT") {
+                    assertEquals(XmlReader.Token.END_DOCUMENT, token)
                 }
             }
 

@@ -219,18 +219,17 @@ public class XmlReader {
             p = doPeek();
         }
 
-        String result;
         if (p == PEEKED_SINGLE_QUOTED_VALUE) {
-            result = nextTerminatedString(SINGLE_QUOTE_OR_AMP);
+            nextTerminatedString(SINGLE_QUOTE_OR_AMP, nextStringBuffer);
             buffer.readByte(); // '''
         } else if (p == PEEKED_DOUBLE_QUOTED_VALUE) {
-            result = nextTerminatedString(DOUBLE_QUOTE_OR_AMP);
+            nextTerminatedString(DOUBLE_QUOTE_OR_AMP, nextStringBuffer);
             buffer.readByte(); // '"'
         } else {
             throw new XmlDataException("Expected VALUE but was " + peek() + " at path " + getPath());
         }
         peeked = PEEKED_NONE;
-        return result;
+        return nextStringBuffer.readUtf8();
     }
 
     public String nextText() throws IOException {
@@ -239,14 +238,18 @@ public class XmlReader {
             p = doPeek();
         }
 
-        if (p == PEEKED_TEXT) {
-            String result = nextTerminatedString(TEXT_END_TERMINAL);
-            peeked = PEEKED_NONE;
-            return result;
-        } else if (p == PEEKED_CDATA) {
-            String result = nextCdataString();
-            peeked = PEEKED_NONE;
-            return result;
+        if (p == PEEKED_TEXT || p == PEEKED_CDATA) {
+            // We need to read multiple times, to catch all text, cdata, and comments
+            do {
+                if (p == PEEKED_TEXT) {
+                    nextTerminatedString(TEXT_END_TERMINAL, nextStringBuffer);
+                } else {
+                    nextCdataString(nextStringBuffer);
+                }
+                p = doPeek();
+            } while (p == PEEKED_TEXT || p == PEEKED_CDATA);
+            peeked = p;
+            return nextStringBuffer.readUtf8();
         } else {
             throw new XmlDataException("Expected TEXT but was " + peek() + " at path " + getPath());
         }
@@ -258,20 +261,32 @@ public class XmlReader {
      * XmlReader.Token#END_TAG}.
      */
     public void skipTag() throws IOException {
+        int p = peeked;
+        if (p == PEEKED_NONE) {
+            p = doPeek();
+        }
+
         int depth = 1;
-        while (depth != 0) {
-            switch (doPeek()) {
+        while (true) {
+            switch (p) {
                 case PEEKED_END_TAG:
                 case PEEKED_EMPTY_TAG:
                     endTag();
                     depth--;
-                    break;
+                    if (depth == 0) {
+                        return;
+                    } else {
+                        break;
+                    }
                 case PEEKED_BEGIN_TAG:
                     beginTag(tempNamespace);
                     depth++;
                     break;
                 case PEEKED_EOF:
                     return;
+                case PEEKED_CDATA:
+                case PEEKED_TEXT:
+                    skipText();
                 default:
                     lastAttribute = null;
                     long i = source.indexOfElement(TAG_TERMINAL);
@@ -282,12 +297,19 @@ public class XmlReader {
                     int c = buffer.getByte(i);
                     if (c == '<') {
                         state = STATE_DOCUMENT;
-                        buffer.skip(i);
+                        source.skip(i);
                     } else { // '>'
+                        int c1 = buffer.getByte(i - 1);
                         state = STATE_TAG;
-                        buffer.skip(i - 1);
+                        if (c1 == '/') {
+                            // Self closing.
+                            source.skip(i - 1);
+                        } else {
+                            source.skip(i);
+                        }
                     }
             }
+            p = doPeek();
         }
     }
 
@@ -319,10 +341,8 @@ public class XmlReader {
                 buffer.readByte(); // '"'
                 break;
             case PEEKED_TEXT:
-                skipTerminatedString(TEXT_END);
-                break;
             case PEEKED_CDATA:
-                skipCdataString();
+                skipText();
                 break;
             case PEEKED_EOF:
                 throw new EOFException("End of input");
@@ -426,7 +446,7 @@ public class XmlReader {
                 fillBuffer(2);
                 if (buffer.getByte(1) == '?') {
                     skipTo("?>");
-                    buffer.skip(2); // '?>'
+                    source.skip(2); // '?>'
                 }
             }
             this.state = STATE_DOCUMENT;
@@ -460,7 +480,7 @@ public class XmlReader {
                     }
                     skipTo("-->");
                     fillBuffer(4);
-                    buffer.skip(3); // '-->'
+                    source.skip(3); // '-->'
                     c = buffer.getByte(0);
                 } else if (c == '[') {
                     int cdataSize = CDATA.size();
@@ -473,7 +493,7 @@ public class XmlReader {
                             throw syntaxError("Expected '" + (char) expected + "' but was '" + (char) c + "'");
                         }
                     }
-                    buffer.skip(cdataSize);
+                    source.skip(cdataSize);
                     return peeked = PEEKED_CDATA;
                 } else {
                     throw syntaxError("Expected '-' or '[' but was '" + (char) c + "'");
@@ -714,7 +734,7 @@ public class XmlReader {
             }
             throw syntaxError("Expected '" + (char) +terminatorByte + "' but was '" + (char) c + "'");
         }
-        buffer.skip(index + 1);
+        source.skip(index + 1);
     }
 
     private int nextNonWhiteSpace(boolean throwOnEof) throws IOException {
@@ -724,7 +744,7 @@ public class XmlReader {
             if (c == '\n' || c == ' ' || c == '\r' || c == '\t') {
                 continue;
             }
-            buffer.skip(p - 1);
+            source.skip(p - 1);
             return c;
         }
         if (throwOnEof) {
@@ -739,7 +759,7 @@ public class XmlReader {
      * Returns true once {@code limit - pos >= minimum}. If the data is exhausted before that many
      * characters are available, this returns false.
      */
-    private boolean fillBuffer(int minimum) throws IOException {
+    private boolean fillBuffer(long minimum) throws IOException {
         return source.request(minimum);
     }
 
@@ -767,36 +787,27 @@ public class XmlReader {
      *
      * @throws IOException if any entities are malformed.
      */
-    private String nextTerminatedString(ByteString runTerminator) throws IOException {
-        Buffer nextStringBuffer = null;
+    private void nextTerminatedString(ByteString runTerminator, Buffer outBuffer) throws IOException {
         while (true) {
             long index = source.indexOfElement(runTerminator);
             if (index == -1L) {
                 throw syntaxError("Unterminated string");
             }
 
+            byte c = buffer.getByte(index);
             // If we've got an entity, we're going to need a string builder.
-            if (buffer.getByte(index) == '&') {
-                if (nextStringBuffer == null) {
-                    nextStringBuffer = this.nextStringBuffer;
-                }
-                nextStringBuffer.write(buffer, index);
+            if (c == '&') {
+                outBuffer.write(buffer, index);
                 buffer.readByte(); // '&'
-                readEntity(nextStringBuffer);
+                readEntity(outBuffer);
                 continue;
             }
-
-            // If it isn't the escape character, it's the quote. Return the string.
-            if (nextStringBuffer == null) {
-                return buffer.readUtf8(index);
-            } else {
-                nextStringBuffer.write(buffer, index);
-                return nextStringBuffer.readUtf8();
-            }
+            outBuffer.write(buffer, index);
+            return;
         }
     }
 
-    private String nextCdataString() throws IOException {
+    private void nextCdataString(Buffer outBuffer) throws IOException {
         long start = 0;
         while (true) {
             long index = source.indexOf((byte) ']', start);
@@ -813,9 +824,24 @@ public class XmlReader {
             if (c != '>') {
                 continue;
             }
-            String result = buffer.readUtf8(index);
-            buffer.skip(3); // ]]>
-            return result;
+            outBuffer.write(buffer, index);
+            source.skip(3); // ]]>
+            return;
+        }
+    }
+
+    private void skipText() throws IOException {
+        int p = peeked;
+        if (p == PEEKED_NONE) {
+            p = doPeek();
+        }
+        while (p == PEEKED_TEXT || p == PEEKED_CDATA) {
+            if (p == PEEKED_TEXT) {
+                skipTerminatedString(TEXT_END);
+            } else {
+                skipCdataString();
+            }
+            p = doPeek();
         }
     }
 
@@ -836,7 +862,7 @@ public class XmlReader {
             if (c != '>') {
                 continue;
             }
-            buffer.skip(index + 3);
+            source.skip(index + 3);
             break;
         }
         peeked = PEEKED_NONE;
@@ -851,7 +877,7 @@ public class XmlReader {
         if (index == -1L) {
             throw syntaxError("Unterminated string");
         }
-        buffer.skip(index);
+        source.skip(index);
         peeked = PEEKED_NONE;
     }
 
@@ -869,7 +895,7 @@ public class XmlReader {
 
         String entity = buffer.readUtf8(index);
         buffer.readByte(); // ';'
-        
+
         if (entity.charAt(0) == '#') {
             int result = 0;
 
