@@ -16,41 +16,89 @@
 
 package me.tatarka.parsnip;
 
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlSerializer;
+
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class XmlAdapters {
     private final List<XmlAdapter.Factory> factories;
     private final List<TypeConverter.Factory> typeConverterFactories;
     private final ThreadLocal<List<DeferredAdapter<?>>> reentrantCalls = new ThreadLocal<>();
+    private final Map<Object, XmlAdapter<?>> adapterCache = new LinkedHashMap<>();
 
     XmlAdapters(List<XmlAdapter.Factory> factories, List<TypeConverter.Factory> typeConverterFactories) {
         this.factories = Collections.unmodifiableList(factories);
         this.typeConverterFactories = Collections.unmodifiableList(typeConverterFactories);
     }
 
+    @SuppressWarnings("unchecked") // Factories are required to return only matching JsonAdapters.
     public <T> XmlAdapter<T> adapter(Type type, Set<? extends Annotation> annotations) {
-        return createAdapter(0, type, annotations);
+        // If there's an equivalent adapter in the cache, we're done!
+        Object cacheKey = cacheKey(type, annotations);
+        synchronized (adapterCache) {
+            XmlAdapter<?> result = adapterCache.get(cacheKey);
+            if (result != null) return (XmlAdapter<T>) result;
+        }
+
+        // Short-circuit if this is a reentrant call.
+        List<DeferredAdapter<?>> deferredAdapters = reentrantCalls.get();
+        if (deferredAdapters != null) {
+            for (int i = 0, size = deferredAdapters.size(); i < size; i++) {
+                DeferredAdapter<?> deferredAdapter = deferredAdapters.get(i);
+                if (deferredAdapter.cacheKey.equals(cacheKey)) {
+                    return (XmlAdapter<T>) deferredAdapter;
+                }
+            }
+        } else {
+            deferredAdapters = new ArrayList<>();
+            reentrantCalls.set(deferredAdapters);
+        }
+
+        // Prepare for re-entrant calls, then ask each factory to create a type adapter.
+        DeferredAdapter<T> deferredAdapter = new DeferredAdapter<>(cacheKey);
+        deferredAdapters.add(deferredAdapter);
+        try {
+            for (int i = 0, size = factories.size(); i < size; i++) {
+                XmlAdapter<T> result = (XmlAdapter<T>) factories.get(i).create(type, annotations, this);
+                if (result != null) {
+                    deferredAdapter.ready(result);
+                    synchronized (adapterCache) {
+                        adapterCache.put(cacheKey, result);
+                    }
+                    return result;
+                }
+            }
+        } finally {
+            deferredAdapters.remove(deferredAdapters.size() - 1);
+            if (deferredAdapters.isEmpty()) {
+                reentrantCalls.remove();
+            }
+        }
+        return null;
     }
 
+    @SuppressWarnings("unchecked") // Factories are required to return only matching JsonAdapters.
     public <T> XmlAdapter<T> nextAdapter(XmlAdapter.Factory skipPast, Type type, Set<? extends Annotation> annotations) {
-        return createAdapter(factories.indexOf(skipPast) + 1, type, annotations);
-    }
-
-    /**
-     * Promote the {@link XmlAdapter} to root by wrapping it in one that reads the root tag.
-     *
-     * @param name    the name of the root tag.
-     * @param adapter the adapter to wrap.
-     * @return a new adapter that will read the root tag.
-     */
-    public <T> XmlAdapter<T> root(String name, XmlAdapter<T> adapter) {
-        return new RootAdapter<>(name, adapter);
+        int skipPastIndex = factories.indexOf(skipPast);
+        if (skipPastIndex == -1) {
+            throw new IllegalArgumentException("Unable to skip past unknown factory " + skipPast);
+        }
+        for (int i = skipPastIndex + 1, size = factories.size(); i < size; i++) {
+            XmlAdapter<T> result = (XmlAdapter<T>) factories.get(i).create(type, annotations, this);
+            if (result != null) return result;
+        }
+        return null;
     }
 
     public <T> TypeConverter<T> converter(Type type, Set<? extends Annotation> annotations) {
@@ -61,35 +109,12 @@ public class XmlAdapters {
         return createConverter(typeConverterFactories.indexOf(skipPast) + 1, type, annotations);
     }
 
-    @SuppressWarnings("unchecked") // Factories are required to return only matching XmlAdapters.
-    private <T> XmlAdapter<T> createAdapter(int firstIndex, Type type, Set<? extends Annotation> annotations) {
-        List<DeferredAdapter<?>> deferredAdapters = reentrantCalls.get();
-        if (deferredAdapters == null) {
-            deferredAdapters = new ArrayList<>();
-            reentrantCalls.set(deferredAdapters);
-        } else if (firstIndex == 0) {
-            // If this is a regular adapter lookup, check that this isn't a reentrant call.
-            for (DeferredAdapter<?> deferredAdapter : deferredAdapters) {
-                if (deferredAdapter.type.equals(type) && deferredAdapter.annotations.equals(annotations)) {
-                    return (XmlAdapter<T>) deferredAdapter;
-                }
-            }
-        }
-
-        DeferredAdapter<T> deferredAdapter = new DeferredAdapter<>(type, annotations);
-        deferredAdapters.add(deferredAdapter);
-        try {
-            for (int i = firstIndex, size = factories.size(); i < size; i++) {
-                XmlAdapter<T> result = (XmlAdapter<T>) factories.get(i).create(type, annotations, this);
-                if (result != null) {
-                    deferredAdapter.ready(result);
-                    return result;
-                }
-            }
-        } finally {
-            deferredAdapters.remove(deferredAdapters.size() - 1);
-        }
-        return null;
+    /**
+     * Returns an opaque object that's equal if the type and annotations are equal.
+     */
+    private Object cacheKey(Type type, Set<? extends Annotation> annotations) {
+        if (annotations.isEmpty()) return type;
+        return Arrays.asList(type, annotations);
     }
 
     @SuppressWarnings("unchecked") // Factories are required to return only matching TypeConverters.
@@ -103,7 +128,6 @@ public class XmlAdapters {
         return null;
     }
 
-
     /**
      * Sometimes a type adapter factory depends on its own product; either directly or indirectly.
      * To make this work, we offer this type adapter stub while the final adapter is being computed.
@@ -113,61 +137,28 @@ public class XmlAdapters {
      * class that has a {@code List<Employee>} field for an organization's management hierarchy.
      */
     private static class DeferredAdapter<T> extends XmlAdapter<T> {
-        private Type type;
-        private Set<? extends Annotation> annotations;
+        private Object cacheKey;
         private XmlAdapter<T> delegate;
 
-        public DeferredAdapter(Type type, Set<? extends Annotation> annotations) {
-            this.type = type;
-            this.annotations = annotations;
+        public DeferredAdapter(Object cacheKey) {
+            this.cacheKey = cacheKey;
         }
 
         public void ready(XmlAdapter<T> delegate) {
             this.delegate = delegate;
-
-            // Null out the type and annotations so they can be garbage collected.
-            this.type = null;
-            this.annotations = null;
+            this.cacheKey = null;
         }
 
         @Override
-        public T fromXml(XmlReader reader) throws IOException {
+        public T fromXml(XmlPullParser parser, TagInfo tagInfo) throws IOException, XmlPullParserException {
             if (delegate == null) throw new IllegalStateException("Type adapter isn't ready");
-            return delegate.fromXml(reader);
+            return delegate.fromXml(parser, tagInfo);
         }
 
         @Override
-        public void toXml(XmlWriter writer, T value) throws IOException {
+        public void toXml(XmlSerializer serializer, TagInfo tagInfo, T value) throws IOException {
             if (delegate == null) throw new IllegalStateException("Type adapter isn't ready");
-            delegate.toXml(writer, value);
-        }
-    }
-
-    private static class RootAdapter<T> extends XmlAdapter<T> {
-        private String name;
-        private XmlAdapter<T> delegate;
-
-        RootAdapter(String name, XmlAdapter<T> delegate) {
-            this.name = name;
-            this.delegate = delegate;
-        }
-
-        @Override
-        public T fromXml(XmlReader reader) throws IOException {
-            String name = reader.beginTag();
-            if (!this.name.equals(name)) {
-                throw new me.tatarka.parsnip.XmlDataException("Invalid root tag. Expected " + this.name + " but got " + name);
-            }
-            T result = delegate.fromXml(reader);
-            reader.endTag();
-            return result;
-        }
-
-        @Override
-        public void toXml(XmlWriter writer, T value) throws IOException {
-            writer.beginTag(name);
-            delegate.toXml(writer, value);
-            writer.endTag();
+            delegate.toXml(serializer, tagInfo, value);
         }
     }
 }

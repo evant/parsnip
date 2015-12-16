@@ -28,7 +28,7 @@ class ObjectDeserializerSpecs : Spek() {
             val xml = Xml.Builder().build()
 
             on("an empty object") {
-                val adapter = xml.adapter(javaClass<EmptyObject>())
+                val adapter = xml.adapter(EmptyObject::class.java)
                 val emptyObject = adapter.fromXml("<EmptyObject/>")
 
                 it("should create the object") {
@@ -37,7 +37,7 @@ class ObjectDeserializerSpecs : Spek() {
             }
 
             on("an object with a primitive attribute fields") {
-                val adapter = xml.adapter(javaClass<PrimitiveObject>())
+                val adapter = xml.adapter(PrimitiveObject::class.java)
                 val primitiveObject = adapter.fromXml("<PrimitiveObject boolean=\"true\" byte=\"1\" char=\"a\" double=\"1.0\" float=\"1.0\" int=\"1\" long=\"1\" short=\"1\" />")
 
                 it("should create the object") {
@@ -78,7 +78,7 @@ class ObjectDeserializerSpecs : Spek() {
             }
 
             on("an object with a string attribute field") {
-                val adapter = xml.adapter(javaClass<StringObject>())
+                val adapter = xml.adapter(StringObject::class.java)
                 val stringObject = adapter.fromXml("<StringObject string1=\"test\" />")
 
                 it("should set the string1 field") {
@@ -91,7 +91,7 @@ class ObjectDeserializerSpecs : Spek() {
             }
 
             on("an object with an enum attribute field") {
-                val adapter = xml.adapter(javaClass<EnumObject>())
+                val adapter = xml.adapter(EnumObject::class.java)
                 val enumObject = adapter.fromXml("<EnumObject enum1=\"One\" enum2=\"Two\" />")
 
                 it("should set the enum1 field") {
@@ -104,7 +104,7 @@ class ObjectDeserializerSpecs : Spek() {
             }
 
             on("an object with a text field") {
-                val adapter = xml.adapter(javaClass<TextObject>())
+                val adapter = xml.adapter(TextObject::class.java)
                 val textObject = adapter.fromXml("<TextObject>test</TextObject>")
 
                 it("should set the text field") {
@@ -113,7 +113,7 @@ class ObjectDeserializerSpecs : Spek() {
             }
 
             on("an object with a tag field") {
-                val adapter = xml.adapter(javaClass<TagObject>())
+                val adapter = xml.adapter(TagObject::class.java)
                 val tagObject = adapter.fromXml("<TagObject><text>test</text><item>test1</item><item>test2</item></TagObject>")
 
                 it("should set the text field") {
@@ -126,7 +126,7 @@ class ObjectDeserializerSpecs : Spek() {
             }
 
             on("an object with a nested one") {
-                val adapter = xml.adapter(javaClass<NestedObject>())
+                val adapter = xml.adapter(NestedObject::class.java)
                 val nestedObject = adapter.fromXml("<NestedObject><nested string1=\"test\"/></NestedObject>")
 
                 it("should set nested field") {
@@ -139,7 +139,7 @@ class ObjectDeserializerSpecs : Spek() {
             }
 
             on("an object with a collection of tags") {
-                val adapter = xml.adapter(javaClass<CollectionObject>())
+                val adapter = xml.adapter(CollectionObject::class.java)
                 val collectionObject = adapter.fromXml("<CollectionObject><StringObject string1=\"test1\"/><StringObject string1=\"test2\"/></CollectionObject>")
 
                 it("should read the items into a collection") {
@@ -148,7 +148,7 @@ class ObjectDeserializerSpecs : Spek() {
             }
 
             on("an object with namespaces") {
-                val adapter = xml.adapter(javaClass<NamespaceObject>())
+                val adapter = xml.adapter(NamespaceObject::class.java)
                 val namespaceObject = adapter.fromXml("<NamespaceObject xmlns:ns=\"foo\" ns:attribute=\"value\" attribute=\"notValue\"><ns:tag string1=\"test\"/><ns:StringObject string1=\"test1\"/><ns:StringObject string1=\"test2\"/></NamespaceObject>")
 
                 it("should read the namespaced attribute, not the other one") {
@@ -165,7 +165,7 @@ class ObjectDeserializerSpecs : Spek() {
             }
             
             on("an attribute and tag of the same name") {
-                val adapter = xml.adapter(javaClass<SameNameObject>())
+                val adapter = xml.adapter(SameNameObject::class.java)
                 val sameNameObject = adapter.fromXml("<SameNameObject name=\"value\"><name string1=\"value\"/></SameNameObject>")
                 
                 it("should read the attribute") {
@@ -178,7 +178,7 @@ class ObjectDeserializerSpecs : Spek() {
             }
             
             on("an object without a namespace but xml with it") {
-                val adapter = xml.adapter(javaClass<StringObject>())
+                val adapter = xml.adapter(StringObject::class.java)
                 val stringObject = adapter.fromXml("<StringObject xmlns:ns=\"foo\" ns:string1=\"value\"/>")
                 
                 it("should read the attribute ignoring the namespace") {

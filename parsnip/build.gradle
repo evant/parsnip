@@ -15,10 +15,10 @@
  */
 
 group 'me.tatarka'
-version '0.1'
+version '0.2'
 
 buildscript {
-    ext.kotlin_version = '0.12.1230'
+    ext.kotlin_version = '1.0.0-beta-3595'
     repositories {
         mavenCentral()
     }
@@ -38,10 +38,13 @@ repositories {
 }
 
 dependencies {
-    compile 'com.squareup.okio:okio:1.6.0'
+    compile 'net.sf.kxml:kxml2:2.3.0'
     testCompile 'junit:junit:4.11'
-    testCompile 'org.jetbrains.spek:spek:0.1.164'
+    testCompile 'org.assertj:assertj-core:3.2.0'
+    testCompile 'org.jetbrains.spek:spek:0.1.182'
     testCompile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    testCompile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
+
 }
 
 if (project.hasProperty('sonatype.username') && project.hasProperty('sonatype.password')) {

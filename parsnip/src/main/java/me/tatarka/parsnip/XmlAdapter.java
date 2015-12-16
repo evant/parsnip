@@ -16,43 +16,127 @@
 
 package me.tatarka.parsnip;
 
+import org.kxml2.io.KXmlParser;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlPullParserFactory;
+import org.xmlpull.v1.XmlSerializer;
+
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Reader;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.Set;
 
-import okio.Buffer;
-import okio.BufferedSink;
-import okio.BufferedSource;
-
 public abstract class XmlAdapter<T> {
-    public abstract T fromXml(XmlReader reader) throws IOException;
+    public abstract T fromXml(XmlPullParser parser, TagInfo tagInfo) throws XmlPullParserException, IOException;
 
-    public final T fromXml(BufferedSource source) throws IOException {
-        return fromXml(new XmlReader(source));
+    public final T fromXml(InputStream stream) throws IOException {
+        return fromXml(stream, null);
+    }
+
+    public final T fromXml(InputStream stream, String encoding) throws IOException {
+        XmlPullParser parser = newPullParser();
+        try {
+            parser.setInput(stream, encoding);
+            return fromXml(parser, TagInfo.ROOT);
+        } catch (XmlPullParserException e) {
+            throw new IOException(e);
+        }
+    }
+
+    public final T fromXml(Reader reader) throws IOException {
+        XmlPullParser parser = newPullParser();
+        try {
+            parser.setInput(reader);
+            return fromXml(parser, TagInfo.ROOT);
+        } catch (XmlPullParserException e) {
+            throw new IOException(e);
+        }
     }
 
     public final T fromXml(String string) throws IOException {
-        return fromXml(new Buffer().writeUtf8(string));
+        return fromXml(new StringReader(string));
     }
 
-    public abstract void toXml(XmlWriter writer, T value) throws IOException;
+    public abstract void toXml(XmlSerializer serializer, TagInfo tagInfo, T value) throws IOException;
 
-    public final void toXml(BufferedSink sink, T value) throws IOException {
-        toXml(new XmlWriter(sink), value);
+    public final void toXml(OutputStream stream, T value) throws IOException {
+        toXml(stream, null, value);
+    }
+
+    public final void toXml(OutputStream stream, String encoding, T value) throws IOException {
+        XmlSerializer serializer = newSerializer();
+        serializer.setOutput(stream, encoding);
+        toXml(serializer, TagInfo.ROOT, value);
+    }
+
+    public final void toXml(Writer writer, T value) throws IOException {
+        XmlSerializer serializer = newSerializer();
+        serializer.setOutput(writer);
+        toXml(serializer, TagInfo.ROOT, value);
     }
 
     public final String toXml(T value) throws IOException {
-        Buffer buffer = new Buffer();
+        StringWriter writer = new StringWriter();
         try {
-            toXml(buffer, value);
+            toXml(writer, value);
         } catch (IOException e) {
             throw new AssertionError(e); // No I/O writing to a Buffer.
         }
-        return buffer.readUtf8();
+        return writer.toString();
     }
 
     public interface Factory {
         XmlAdapter<?> create(Type type, Set<? extends Annotation> annotations, XmlAdapters adapters);
+    }
+
+    // Taken from android's Xml util class.
+
+    /**
+     * Returns a new pull parser with namespace support.
+     */
+    private static XmlPullParser newPullParser() {
+        try {
+            KXmlParser parser = new KXmlParser();
+//            parser.setFeature(XmlPullParser.FEATURE_PROCESS_DOCDECL, true);
+            parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true);
+            return parser;
+        } catch (XmlPullParserException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    /**
+     * Creates a new xml serializer.
+     */
+    private static XmlSerializer newSerializer() {
+        try {
+            return XmlSerializerFactory.instance.newSerializer();
+        } catch (XmlPullParserException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    /**
+     * Factory for xml serializers. Initialized on demand.
+     */
+    private static class XmlSerializerFactory {
+        static final String TYPE
+                = "org.kxml2.io.KXmlParser,org.kxml2.io.KXmlSerializer";
+        static final XmlPullParserFactory instance;
+
+        static {
+            try {
+                instance = XmlPullParserFactory.newInstance(TYPE, null);
+            } catch (XmlPullParserException e) {
+                throw new AssertionError(e);
+            }
+        }
     }
 }

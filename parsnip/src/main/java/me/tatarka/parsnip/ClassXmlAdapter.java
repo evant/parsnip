@@ -16,6 +16,10 @@
 
 package me.tatarka.parsnip;
 
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlSerializer;
+
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
@@ -28,6 +32,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import me.tatarka.parsnip.annotations.Namespace;
 import me.tatarka.parsnip.annotations.SerializedName;
 import me.tatarka.parsnip.annotations.Text;
 
@@ -55,6 +60,10 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
             }
 
             ClassFactory<Object> classFactory = ClassFactory.get(rawType);
+            SerializedName serializedName = rawType.getAnnotation(SerializedName.class);
+            String name = serializedName != null ? serializedName.value() : rawType.getSimpleName();
+            Namespace namespace = rawType.getAnnotation(Namespace.class);
+            TagInfo tagInfo = new TagInfo(name, namespace);
             ArrayList<AttributeFieldBinding> attributes = new ArrayList<>();
             ArrayList<TagFieldBinding> tags = new ArrayList<>();
             // Only a single text, but this makes it easier to check for duplicates
@@ -62,7 +71,7 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
             for (Type t = type; t != Object.class; t = Types.getGenericSuperclass(t)) {
                 createFieldBindings(adapters, t, attributes, tags, text);
             }
-            return new ClassXmlAdapter<>(classFactory, attributes, tags, text.isEmpty() ? null : text.get(0));
+            return new ClassXmlAdapter<>(classFactory, tagInfo, attributes, tags, text.isEmpty() ? null : text.get(0));
         }
 
         /** Creates a field binding for each of declared field of {@code type}. */
@@ -109,9 +118,10 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
                         XmlAdapter<?> adapter = adapters.adapter(fieldType, annotations);
                         String name = getFieldName(field);
                         Namespace namespace = getNamespace(field);
+                        String ns = namespace == null ? null : namespace.value();
                         if (adapter != null) {
                             TagFieldBinding<?> fieldBinding = new TagFieldBinding<>(field, name, namespace, adapter);
-                            FieldBinding replaced = getFieldBindingTags(tags, name, namespace);
+                            FieldBinding replaced = getFieldBindingTags(tags, name, ns);
                             // Store it using the field's name. If there was already a field with this name, fail!
                             if (replaced != null) {
                                 throw new IllegalArgumentException("Field name collision: '" + field.getName() + "'"
@@ -125,7 +135,7 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
                                 throw new IllegalArgumentException("No XmlAdapter or TypeConverter for type " + fieldType + " and annotations " + annotations);
                             }
                             AttributeFieldBinding<?> fieldBinding = new AttributeFieldBinding<>(field, name, namespace, converter);
-                            FieldBinding replaced = getFieldBindingAttributes(attributes, name, namespace);
+                            FieldBinding replaced = getFieldBindingAttributes(attributes, name, ns);
                             // Store it using the field's name. If there was already a field with this name, fail!
                             if (replaced != null) {
                                 throw new IllegalArgumentException("Field name collision: '" + field.getName() + "'"
@@ -171,10 +181,7 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
          * Returns the field namespace, if it exists.
          */
         private Namespace getNamespace(Field field) {
-            me.tatarka.parsnip.annotations.Namespace namespace = field.getAnnotation(me.tatarka.parsnip.annotations.Namespace.class);
-            if (namespace == null) return null;
-            String alias = namespace.alias().isEmpty() ? null : namespace.alias();
-            return new Namespace(alias, namespace.value());
+            return field.getAnnotation(Namespace.class);
         }
 
         /**
@@ -198,38 +205,47 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
     };
 
     private final me.tatarka.parsnip.ClassFactory<T> classFactory;
+    private final TagInfo tagInfo;
     private final ArrayList<AttributeFieldBinding> attributes;
     private final ArrayList<TagFieldBinding> tags;
     private final TextFieldBinding text;
     // Namespaces to declare when writing.
-    private LinkedHashSet<Namespace> delcareNamespaces;
+    private LinkedHashSet<TagInfo> declareNamespaces;
 
-    private ClassXmlAdapter(me.tatarka.parsnip.ClassFactory<T> classFactory, ArrayList<AttributeFieldBinding> attributes, ArrayList<TagFieldBinding> tags, TextFieldBinding text) {
+    private ClassXmlAdapter(me.tatarka.parsnip.ClassFactory<T> classFactory, TagInfo tagInfo, ArrayList<AttributeFieldBinding> attributes, ArrayList<TagFieldBinding> tags, TextFieldBinding text) {
         this.classFactory = classFactory;
+        this.tagInfo = tagInfo;
         this.attributes = attributes;
         this.tags = tags;
         this.text = text;
     }
 
-    private LinkedHashSet<Namespace> initDeclareNamespaces() {
-        LinkedHashSet<Namespace> declareNamespaces = new LinkedHashSet<>();
+    LinkedHashSet<TagInfo> getDeclaredNamespaces() {
+        if (declareNamespaces == null) {
+            declareNamespaces = initDeclaredNamespaces();
+        }
+        return declareNamespaces;
+    }
+
+    private LinkedHashSet<TagInfo> initDeclaredNamespaces() {
+        LinkedHashSet<TagInfo> declareNamespaces = new LinkedHashSet<>();
         for (int i = 0, size = attributes.size(); i < size; i++) {
-            Namespace namespace = attributes.get(i).namespace;
-            if (namespace != null) {
-                declareNamespaces.add(namespace);
+            TagInfo info = attributes.get(i).tagInfo;
+            if (info.namespace() != null) {
+                declareNamespaces.add(info);
             }
         }
         for (int i = 0, size = tags.size(); i < size; i++) {
-            Namespace namespace = tags.get(i).namespace;
-            if (namespace != null) {
-                declareNamespaces.add(namespace);
+            TagInfo info = tags.get(i).tagInfo;
+            if (info.namespace() != null) {
+                declareNamespaces.add(info);
             }
         }
         return declareNamespaces;
     }
 
     @Override
-    public T fromXml(XmlReader reader) throws IOException {
+    public T fromXml(XmlPullParser parser, TagInfo tagInfo) throws XmlPullParserException, IOException {
         T result;
         try {
             result = classFactory.newInstance();
@@ -256,45 +272,46 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
             throw new AssertionError(e);
         }
 
+        if (tagInfo == TagInfo.ROOT) {
+            while (parser.next() != XmlPullParser.START_TAG) {
+                // Read to start tag.
+            }
+        }
+
         try {
-            Namespace namespace = new Namespace();
-            XmlReader.Token token = reader.peek();
-            while (token != XmlReader.Token.END_TAG) {
-                switch (token) {
-                    case ATTRIBUTE: {
-                        String name = reader.nextAttribute(namespace);
-                        FieldBinding fieldBinding = getFieldBindingAttributes(attributes, name, namespace);
-                        if (fieldBinding != null) {
-                            fieldBinding.read(reader, result);
-                        } else {
-                            reader.skip();
-                        }
-                        break;
-                    }
-                    case TEXT: {
-                        FieldBinding fieldBinding = text;
-                        if (fieldBinding != null) {
-                            fieldBinding.read(reader, result);
-                        } else {
-                            reader.skip();
-                        }
-                        break;
-                    }
-                    case BEGIN_TAG: {
-                        String name = reader.beginTag(namespace);
-                        FieldBinding fieldBinding = getFieldBindingTags(tags, name, namespace);
-                        if (fieldBinding != null) {
-                            fieldBinding.read(reader, result);
-                        } else {
-                            reader.skipTag();
-                        }
-                        break;
-                    }
-                    case END_DOCUMENT: {
-                        throw new me.tatarka.parsnip.XmlDataException("Unexpected end of document");
+            if (!attributes.isEmpty()) {
+                for (int i = 0, size = parser.getAttributeCount(); i < size; i++) {
+                    String name = parser.getAttributeName(i);
+                    FieldBinding fieldBinding = getFieldBindingAttributes(attributes, name, parser.getAttributeNamespace(i));
+                    if (fieldBinding != null) {
+                        fieldBinding.read(parser, i, result);
                     }
                 }
-                token = reader.peek();
+            }
+
+            loop:
+            while (parser.next() != XmlPullParser.END_TAG) {
+                switch (parser.getEventType()) {
+                    case XmlPullParser.START_TAG: {
+                        String name = parser.getName();
+                        FieldBinding fieldBinding = getFieldBindingTags(tags, name, parser.getNamespace());
+                        if (fieldBinding != null) {
+                            fieldBinding.read(parser, 0, result);
+                        } else {
+                            skip(parser);
+                        }
+                        break;
+                    }
+                    case XmlPullParser.TEXT: {
+                        FieldBinding fieldBinding = text;
+                        if (fieldBinding != null) {
+                            fieldBinding.read(parser, 0, result);
+                        }
+                        break;
+                    }
+                    case XmlPullParser.END_DOCUMENT:
+                        break loop;
+                }
             }
         } catch (IllegalAccessException e) {
             throw new AssertionError(e);
@@ -302,61 +319,85 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
         return result;
     }
 
-    @Override
-    public void toXml(XmlWriter writer, T value) throws IOException {
-        // Write declared namespaces for attributes and tags
-        if (delcareNamespaces == null) {
-            delcareNamespaces = initDeclareNamespaces();
+    private void skip(XmlPullParser parser) throws IOException, XmlPullParserException {
+        if (parser.getEventType() != XmlPullParser.START_TAG) {
+            throw new IllegalStateException();
         }
-        if (!delcareNamespaces.isEmpty()) {
-            for (Namespace namespace : delcareNamespaces) {
-                writer.namespace(namespace);
+        int depth = 1;
+        while (depth != 0) {
+            switch (parser.next()) {
+                case XmlPullParser.END_TAG:
+                    depth--;
+                    break;
+                case XmlPullParser.START_TAG:
+                    depth++;
+                    break;
             }
         }
-        
+    }
+
+    @Override
+    public void toXml(XmlSerializer serializer, TagInfo tagInfo, T value) throws IOException {
+        // Write declared namespaces for attributes and tags
+        LinkedHashSet<TagInfo> declareNamespaces = getDeclaredNamespaces();
+        if (!declareNamespaces.isEmpty()) {
+            for (TagInfo info : declareNamespaces) {
+                serializer.setPrefix(info.alias(), info.namespace());
+            }
+        }
+
+        if (tagInfo == TagInfo.ROOT) {
+            serializer.startTag(this.tagInfo.namespace(), this.tagInfo.name());
+        } else {
+            serializer.startTag(tagInfo.namespace(), tagInfo.name());
+        }
+
         try {
-            // Write actual stuff
             for (int i = 0, size = attributes.size(); i < size; i++) {
                 FieldBinding fieldBinding = attributes.get(i);
-                fieldBinding.write(writer, value);
+                fieldBinding.write(serializer, value);
             }
             for (int i = 0, size = tags.size(); i < size; i++) {
                 FieldBinding fieldBinding = tags.get(i);
-                fieldBinding.write(writer, value);
+                fieldBinding.write(serializer, value);
             }
             if (text != null) {
-                text.write(writer, value);
+                text.write(serializer, value);
             }
         } catch (IllegalAccessException e) {
             throw new AssertionError(e);
         }
+
+        if (tagInfo == TagInfo.ROOT) {
+            serializer.endTag(this.tagInfo.namespace(), this.tagInfo.name());
+        } else {
+            serializer.endTag(tagInfo.namespace(), tagInfo.name());
+        }
     }
 
-    private static FieldBinding getFieldBindingTags(ArrayList<? extends TagFieldBinding> fields, String name, Namespace namespace) {
+    private static FieldBinding getFieldBindingTags(ArrayList<? extends TagFieldBinding> fields, String name, String namespace) {
         for (int i = 0, size = fields.size(); i < size; i++) {
             TagFieldBinding fieldBinding = fields.get(i);
-            if (fieldBinding.name.equals(name) && nsEquals(fieldBinding.namespace, namespace)) {
+            if (fieldBinding.tagInfo.name().equals(name) && nsEquals(fieldBinding.tagInfo.namespace(), namespace)) {
                 return fieldBinding;
             }
         }
         return null;
     }
 
-    private static FieldBinding getFieldBindingAttributes(ArrayList<? extends AttributeFieldBinding> fields, String name, Namespace namespace) {
+    private static FieldBinding getFieldBindingAttributes(ArrayList<? extends AttributeFieldBinding> fields, String name, String namespace) {
         for (int i = 0, size = fields.size(); i < size; i++) {
             AttributeFieldBinding fieldBinding = fields.get(i);
-            if (fieldBinding.name.equals(name) && nsEquals(fieldBinding.namespace, namespace)) {
+            if (fieldBinding.tagInfo.name().equals(name) && nsEquals(fieldBinding.tagInfo.namespace(), namespace)) {
                 return fieldBinding;
             }
         }
         return null;
     }
 
-    private static boolean nsEquals(Namespace expected, Namespace actual) {
+    private static boolean nsEquals(String expected, String actual) {
         // All namespaces match if none expected.
-        if (expected == null) return true;
-        if (actual == null) return expected.namespace == null;
-        return expected.equals(actual);
+        return expected == null || expected.equals(actual);
     }
 
     private static abstract class FieldBinding<T> {
@@ -366,79 +407,65 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
             this.field = field;
         }
 
-        void read(XmlReader reader, Object value) throws IOException, IllegalAccessException {
-            Object fieldValue = readValue(reader);
+        void read(XmlPullParser parser, int index, Object value) throws XmlPullParserException, IOException, IllegalAccessException {
+            Object fieldValue = readValue(parser, index);
             field.set(value, fieldValue);
         }
 
         @SuppressWarnings("unchecked")
             // We require that field's values are of type T.
-        void write(XmlWriter writer, Object value) throws IllegalAccessException, IOException {
+        void write(XmlSerializer serializer, Object value) throws IllegalAccessException, IOException {
             T fieldValue = (T) field.get(value);
-            writeValue(writer, fieldValue);
+            writeValue(serializer, fieldValue);
         }
 
-        abstract T readValue(XmlReader reader) throws IOException;
+        abstract T readValue(XmlPullParser parser, int index) throws XmlPullParserException, IOException;
 
-        abstract void writeValue(XmlWriter writer, T value) throws IOException;
+        abstract void writeValue(XmlSerializer serializer, T value) throws IOException;
     }
 
     private static class TagFieldBinding<T> extends FieldBinding<T> {
-        final String name;
-        final Namespace namespace;
+        private TagInfo tagInfo;
         final XmlAdapter<T> adapter;
 
         TagFieldBinding(Field field, String name, Namespace namespace, XmlAdapter<T> adapter) {
             super(field);
-            this.name = name;
-            this.namespace = namespace;
+            this.tagInfo = new TagInfo(name, namespace);
             this.adapter = adapter;
         }
 
         @Override
-        T readValue(XmlReader reader) throws IOException {
-            T value = adapter.fromXml(reader);
-            reader.endTag();
-            return value;
+        T readValue(XmlPullParser parser, int index) throws XmlPullParserException, IOException {
+            return adapter.fromXml(parser, tagInfo);
         }
 
         @Override
-        void writeValue(XmlWriter writer, T value) throws IOException {
-            if (namespace == null) {
-                writer.beginTag(name);
-            } else {
-                writer.beginTag(namespace, name);
-            }
-            adapter.toXml(writer, value);
-            writer.endTag();
+        void writeValue(XmlSerializer serializer, T value) throws IOException {
+            adapter.toXml(serializer, tagInfo, value);
         }
     }
 
     private static class AttributeFieldBinding<T> extends FieldBinding<T> {
-        final String name;
-        final Namespace namespace;
+        final TagInfo tagInfo;
         final TypeConverter<T> converter;
 
         AttributeFieldBinding(Field field, String name, Namespace namespace, TypeConverter<T> converter) {
             super(field);
-            this.name = name;
-            this.namespace = namespace;
+            this.tagInfo = new TagInfo(name, namespace);
             this.converter = converter;
         }
 
         @Override
-        T readValue(XmlReader reader) throws IOException {
-            return converter.from(reader.nextValue());
+        T readValue(XmlPullParser parser, int index) throws IOException {
+            return converter.from(parser.getAttributeValue(index));
         }
 
         @Override
-        void writeValue(XmlWriter writer, T value) throws IOException {
-            if (namespace == null) {
-                writer.name(name);
-            } else {
-                writer.name(namespace, name);
+        void writeValue(XmlSerializer serializer, T value) throws IOException {
+            String strValue = converter.to(value);
+            if (strValue != null) {
+                serializer.attribute(tagInfo.namespace(), tagInfo.name(), strValue);
             }
-            writer.value(converter.to(value));
         }
     }
 
@@ -451,13 +478,13 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
         }
 
         @Override
-        T readValue(XmlReader reader) throws IOException {
-            return converter.from(reader.nextText());
+        T readValue(XmlPullParser parser, int index) throws IOException, XmlPullParserException {
+            return converter.from(parser.getText());
         }
 
         @Override
-        void writeValue(XmlWriter writer, T value) throws IOException {
-            writer.text(converter.to(value));
+        void writeValue(XmlSerializer serializer, T value) throws IOException {
+            serializer.text(converter.to(value));
         }
     }
 
@@ -481,8 +508,8 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
         @Override
         @SuppressWarnings("unchecked")
             // We require that field's values are of type Collection<T>.
-        void read(XmlReader reader, Object value) throws IOException, IllegalAccessException {
-            T additionalValue = readValue(reader);
+        void read(XmlPullParser parser, int index, Object value) throws IOException, IllegalAccessException, XmlPullParserException {
+            T additionalValue = readValue(parser, index);
             Collection<T> currentValue = (Collection<T>) field.get(value);
             currentValue.add(additionalValue);
         }
@@ -490,11 +517,11 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
         @Override
         @SuppressWarnings("unchecked")
             // We require that field's values are of type Collection<T>.
-        void write(XmlWriter writer, Object value) throws IllegalAccessException, IOException {
+        void write(XmlSerializer serializer, Object value) throws IllegalAccessException, IOException {
             Collection<T> fieldValue = (Collection<T>) field.get(value);
             if (fieldValue != null) {
                 for (T singleValue : fieldValue) {
-                    writeValue(writer, singleValue);
+                    writeValue(serializer, singleValue);
                 }
             }
         }

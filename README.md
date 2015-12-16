@@ -6,13 +6,9 @@
 **Warning!** The parser is quite buggy at the moment and only works with the simpilest of xml.
 
 ## Why parsnip?
-- Fast streaming parser based on [okio](https://github.com/square/okio).
 - Simple modern api similar to [gson](https://github.com/google/gson) and [moshi](https://github.com/square/moshi).
-
-## Why not parsnip?
-- UTF-8 only
-- Not a validating parser
-- Doesn't support custom entities
+- Based on kxml which is fast and memory efficient on Android.
+- More performant than SimpleXML while requiring less annotations in the common case.
 
 ## Usage
 
@@ -54,12 +50,12 @@ String xml = xmlAdapter.toXml(blackjackHand);
 
 ### Built in xml adapters
 Parsnip has built-in support for reading and writing
-- primative types
+- primitive types
 - arrays, collections and lists
 - Strings
 - enums
 
-It supports classes by writing them out field-by-field. Primaitves will be written out as attributes by default, classes will be written out as tags.
+It supports classes by writing them out field-by-field. Primitives will be written out as attributes by default, classes will be written out as tags.
 
 If you have these classes:
 ```java
@@ -90,7 +86,7 @@ Parsnip will read and write this xml:
 ```
 
 ### Custom naming
-You can customzie the names of tags and attributes with `@SerializedName()`. The above example will look a little better as such:
+You can customize the names of tags and attributes with `@SerializedName()`. The above example will look a little better as such:
 ```java
 class BlackjackHand {
   @SerializedName("HiddenCard")

@@ -22,5 +22,5 @@ repositories {
 
 dependencies {
     compile project(':parsnip')
-    compile 'com.squareup.retrofit:retrofit:2.0.0-beta1'
+    compile 'com.squareup.retrofit:retrofit:2.0.0-beta2'
 }

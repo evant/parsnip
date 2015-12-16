@@ -15,6 +15,10 @@
  */
 package me.tatarka.parsnip;
 
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlSerializer;
+
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
@@ -56,28 +60,28 @@ final class AdapterMethodsFactory implements me.tatarka.parsnip.XmlAdapter.Facto
 
         return new me.tatarka.parsnip.XmlAdapter<Object>() {
             @Override
-            public Object fromXml(me.tatarka.parsnip.XmlReader reader) throws IOException {
+            public Object fromXml(XmlPullParser parser, TagInfo tagInfo) throws IOException, XmlPullParserException {
                 if (fromAdapter == null) {
-                    return delegate.fromXml(reader);
+                    return delegate.fromXml(parser, tagInfo);
                 } else {
                     try {
-                        return fromAdapter.fromXml(adapters, reader);
+                        return fromAdapter.fromXml(adapters, parser, tagInfo);
                     } catch (IllegalAccessException e) {
                         throw new AssertionError();
                     } catch (InvocationTargetException e) {
                         if (e.getCause() instanceof IOException) throw (IOException) e.getCause();
-                        throw new XmlDataException(e.getCause() + " at " + reader.getPath());
+                        throw new XmlDataException(e.getCause() + " at " + parser.getDepth());
                     }
                 }
             }
 
             @Override
-            public void toXml(me.tatarka.parsnip.XmlWriter writer, Object value) throws IOException {
+            public void toXml(XmlSerializer serializer, TagInfo tagInfo, Object value) throws IOException {
                 if (toAdapter == null) {
-                    delegate.toXml(writer, value);
+                    delegate.toXml(serializer, tagInfo, value);
                 } else {
                     try {
-                        toAdapter.toXml(adapters, writer, value);
+                        toAdapter.toXml(adapters, serializer, tagInfo, value);
                     } catch (IllegalAccessException e) {
                         throw new AssertionError();
                     } catch (InvocationTargetException e) {
@@ -137,16 +141,16 @@ final class AdapterMethodsFactory implements me.tatarka.parsnip.XmlAdapter.Facto
         final Type returnType = method.getGenericReturnType();
 
         if (parameterTypes.length == 2
-                && parameterTypes[0] == me.tatarka.parsnip.XmlWriter.class
+                && parameterTypes[0] == XmlSerializer.class
                 && returnType == void.class) {
-            // public void pointToXml(XmlWriter writer, Point point) throws Exception {
+            // public void pointToXml(XmlSerializer serializer, Point point) throws Exception {
             Set<? extends Annotation> parameterAnnotations
                     = me.tatarka.parsnip.Util.xmlAnnotations(method.getParameterAnnotations()[1]);
             return new AdapterMethod(parameterTypes[1], parameterAnnotations, adapter, method, false) {
                 @Override
-                public void toXml(XmlAdapters adapters, me.tatarka.parsnip.XmlWriter writer, Object value)
+                public void toXml(XmlAdapters adapters, XmlSerializer serializer, TagInfo tagInfo, Object value)
                         throws IOException, InvocationTargetException, IllegalAccessException {
-                    method.invoke(adapter, writer, value);
+                    method.invoke(adapter, serializer, value);
                 }
             };
 
@@ -159,21 +163,21 @@ final class AdapterMethodsFactory implements me.tatarka.parsnip.XmlAdapter.Facto
             boolean nullable = me.tatarka.parsnip.Util.hasNullable(parameterAnnotations[0]);
             return new AdapterMethod(parameterTypes[0], qualifierAnnotations, adapter, method, nullable) {
                 @Override
-                public void toXml(XmlAdapters adapters, me.tatarka.parsnip.XmlWriter writer, Object value)
+                public void toXml(XmlAdapters adapters, XmlSerializer serializer, TagInfo tagInfo, Object value)
                         throws IOException, InvocationTargetException, IllegalAccessException {
                     me.tatarka.parsnip.XmlAdapter<Object> delegate = adapters.adapter(returnType, returnTypeAnnotations);
                     if (delegate == null) {
                         throw new IllegalArgumentException("No XmlAdapter for type " + returnType + " and annotations " + returnTypeAnnotations);
                     }
                     Object intermediate = method.invoke(adapter, value);
-                    delegate.toXml(writer, intermediate);
+                    delegate.toXml(serializer, tagInfo, intermediate);
                 }
             };
 
         } else {
             throw new IllegalArgumentException("Unexpected signature for " + method + ".\n"
                     + "@ToXml method signatures may have one of the following structures:\n"
-                    + "    <any access modifier> void toXml(XmlWriter writer, T value) throws <any>;\n"
+                    + "    <any access modifier> void toXml(XmlSerializer serializer, T value) throws <any>;\n"
                     + "    <any access modifier> R toXml(T value) throws <any>;\n");
         }
     }
@@ -188,15 +192,15 @@ final class AdapterMethodsFactory implements me.tatarka.parsnip.XmlAdapter.Facto
         final Type returnType = method.getGenericReturnType();
 
         if (parameterTypes.length == 1
-                && parameterTypes[0] == me.tatarka.parsnip.XmlReader.class
+                && parameterTypes[0] == XmlPullParser.class
                 && returnType != void.class) {
             // public Point pointFromXml(XmlReader xmlReader) throws Exception {
             Set<? extends Annotation> returnTypeAnnotations = me.tatarka.parsnip.Util.xmlAnnotations(method);
             return new AdapterMethod(returnType, returnTypeAnnotations, adapter, method, false) {
                 @Override
-                public Object fromXml(XmlAdapters adapters, me.tatarka.parsnip.XmlReader reader)
+                public Object fromXml(XmlAdapters adapters, XmlPullParser parser, TagInfo tagInfo)
                         throws IOException, IllegalAccessException, InvocationTargetException {
-                    return method.invoke(adapter, reader);
+                    return method.invoke(adapter, parser);
                 }
             };
 
@@ -209,13 +213,13 @@ final class AdapterMethodsFactory implements me.tatarka.parsnip.XmlAdapter.Facto
             boolean nullable = me.tatarka.parsnip.Util.hasNullable(parameterAnnotations[0]);
             return new AdapterMethod(returnType, returnTypeAnnotations, adapter, method, nullable) {
                 @Override
-                public Object fromXml(XmlAdapters adapters, me.tatarka.parsnip.XmlReader reader)
-                        throws IOException, IllegalAccessException, InvocationTargetException {
+                public Object fromXml(XmlAdapters adapters, XmlPullParser parser, TagInfo tagInfo)
+                        throws IOException, IllegalAccessException, InvocationTargetException, XmlPullParserException {
                     me.tatarka.parsnip.XmlAdapter<Object> delegate = adapters.adapter(parameterTypes[0], qualifierAnnotations);
                     if (delegate == null) {
                         throw new IllegalArgumentException("No XmlAdapter for type " + parameterTypes[0] + " and annotations " + qualifierAnnotations);
                     }
-                    Object intermediate = delegate.fromXml(reader);
+                    Object intermediate = delegate.fromXml(parser, tagInfo);
                     return method.invoke(adapter, intermediate);
                 }
             };
@@ -223,7 +227,7 @@ final class AdapterMethodsFactory implements me.tatarka.parsnip.XmlAdapter.Facto
         } else {
             throw new IllegalArgumentException("Unexpected signature for " + method + ".\n"
                     + "@ToXml method signatures may have one of the following structures:\n"
-                    + "    <any access modifier> void toXml(XmlWriter writer, T value) throws <any>;\n"
+                    + "    <any access modifier> void toXml(XmlSerializer serializer, TagInfo tagInfo, T value) throws <any>;\n"
                     + "    <any access modifier> R toXml(T value) throws <any>;\n");
         }
     }
@@ -257,13 +261,13 @@ final class AdapterMethodsFactory implements me.tatarka.parsnip.XmlAdapter.Facto
             this.nullable = nullable;
         }
 
-        public void toXml(XmlAdapters adapters, me.tatarka.parsnip.XmlWriter writer, Object value)
+        public void toXml(XmlAdapters adapters, XmlSerializer serializer, TagInfo tagInfo, Object value)
                 throws IOException, IllegalAccessException, InvocationTargetException {
             throw new AssertionError();
         }
 
-        public Object fromXml(XmlAdapters adapters, me.tatarka.parsnip.XmlReader reader)
-                throws IOException, IllegalAccessException, InvocationTargetException {
+        public Object fromXml(XmlAdapters adapters, XmlPullParser parser, TagInfo tagInfo)
+                throws IOException, IllegalAccessException, InvocationTargetException, XmlPullParserException {
             throw new AssertionError();
         }
     }

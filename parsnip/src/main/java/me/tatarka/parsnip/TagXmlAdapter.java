@@ -16,6 +16,10 @@
 
 package me.tatarka.parsnip;
 
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlSerializer;
+
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
@@ -57,12 +61,14 @@ public class TagXmlAdapter<T> extends XmlAdapter<T> {
     }
 
     @Override
-    public T fromXml(me.tatarka.parsnip.XmlReader reader) throws IOException {
-        return converter.from(reader.nextText());
+    public T fromXml(XmlPullParser parser, TagInfo tagInfo) throws IOException, XmlPullParserException {
+        return converter.from(parser.nextText());
     }
 
     @Override
-    public void toXml(XmlWriter writer, T value) throws IOException {
-        writer.text(converter.to(value));
+    public void toXml(XmlSerializer serializer, TagInfo tagInfo, T value) throws IOException {
+        serializer.startTag(tagInfo.namespace(), tagInfo.name());
+        serializer.text(converter.to(value));
+        serializer.endTag(tagInfo.namespace(), tagInfo.name());
     }
 }

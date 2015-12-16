@@ -16,11 +16,15 @@
 
 package me.tatarka.parsnip;
 
+import com.squareup.okhttp.RequestBody;
+import com.squareup.okhttp.ResponseBody;
+
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 
 import retrofit.Converter;
 
-public class ParsnipConverterFactory implements Converter.Factory {
+public class ParsnipConverterFactory extends Converter.Factory {
 
     public static ParsnipConverterFactory create() {
         return create(new Xml.Builder().build());
@@ -38,8 +42,14 @@ public class ParsnipConverterFactory implements Converter.Factory {
     }
 
     @Override
-    public Converter<?> get(Type type) {
+    public Converter<ResponseBody, ?> fromResponseBody(Type type, Annotation[] annotations) {
         XmlAdapter<?> adapter = xml.adapter(type);
-        return new ParsnipConverter<>(adapter);
+        return new ParsnipResponseBodyConverter<>(adapter);
+    }
+
+    @Override
+    public Converter<?, RequestBody> toRequestBody(Type type, Annotation[] annotations) {
+        XmlAdapter<?> adapter = xml.adapter(type);
+        return new ParsnipRequestBodyConverter<>(adapter);
     }
 }

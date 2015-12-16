@@ -22,48 +22,46 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import me.tatarka.parsnip.annotations.SerializedName;
 import me.tatarka.parsnip.annotations.XmlQualifier;
 
 public class Xml {
     private static final String ERROR_FORMAT = "No %s for %s annotated %s";
 
-    private XmlAdapters xmlAdapters;
+    static final List<XmlAdapter.Factory> BUILT_IN_ADAPTER_FACTORIES = new ArrayList<>(2);
+    static final List<TypeConverter.Factory> BUILT_IN_CONVERTER_FACTORIES = new ArrayList<>(1);
+
+    static {
+        BUILT_IN_ADAPTER_FACTORIES.add(TagXmlAdapter.FACTORY);
+        BUILT_IN_ADAPTER_FACTORIES.add(ClassXmlAdapter.FACTORY);
+        BUILT_IN_CONVERTER_FACTORIES.add(StandardTypeConverters.FACTORY);
+    }
+
+    private final XmlAdapters adapters;
 
     private Xml(Builder builder) {
-        List<me.tatarka.parsnip.XmlAdapter.Factory> adapterFactories = new ArrayList<>();
-        List<me.tatarka.parsnip.TypeConverter.Factory> typeConverterFactories = new ArrayList<>();
+        List<XmlAdapter.Factory> adapterFactories = new ArrayList<>(builder.adapterFactories.size() + BUILT_IN_ADAPTER_FACTORIES.size());
         adapterFactories.addAll(builder.adapterFactories);
-        adapterFactories.add(TagXmlAdapter.FACTORY);
-        adapterFactories.add(me.tatarka.parsnip.ClassXmlAdapter.FACTORY);
-        typeConverterFactories.addAll(builder.typeConverterFactories);
-        typeConverterFactories.add(StandardTypeConverters.FACTORY);
-        xmlAdapters = new XmlAdapters(adapterFactories, typeConverterFactories);
+        adapterFactories.addAll(BUILT_IN_ADAPTER_FACTORIES);
+        List<TypeConverter.Factory> converterFactories = new ArrayList<>(builder.typeConverterFactories.size() + BUILT_IN_CONVERTER_FACTORIES.size());
+        converterFactories.addAll(builder.typeConverterFactories);
+        converterFactories.addAll(BUILT_IN_CONVERTER_FACTORIES);
+        adapters = new XmlAdapters(adapterFactories, converterFactories);
     }
 
     public <T> XmlAdapter<T> adapter(Class<T> type) {
-        return adapter(type, me.tatarka.parsnip.Util.NO_ANNOTATIONS);
+        return adapter(type, Util.NO_ANNOTATIONS);
     }
 
     public <T> XmlAdapter<T> adapter(Type type) {
-        return adapter(type, me.tatarka.parsnip.Util.NO_ANNOTATIONS);
+        return adapter(type, Util.NO_ANNOTATIONS);
     }
 
     public <T> XmlAdapter<T> adapter(Type type, Set<? extends Annotation> annotations) {
-        XmlAdapter<T> adapter = xmlAdapters.adapter(type, annotations);
+        XmlAdapter<T> adapter = adapters.adapter(type, annotations);
         if (adapter == null) {
-            throw new IllegalArgumentException(String.format(ERROR_FORMAT, "XmlAdapter", type, me.tatarka.parsnip.Util.NO_ANNOTATIONS));
+            throw new IllegalArgumentException(String.format(ERROR_FORMAT, "XmlAdapter", type, Util.NO_ANNOTATIONS));
         }
-        Class<?> rawType = Types.getRawType(type);
-        SerializedName serializedName = rawType.getAnnotation(SerializedName.class);
-        String name;
-        if (serializedName != null) {
-            name = serializedName.value();
-        } else {
-            name = rawType.getSimpleName();
-        }
-
-        return xmlAdapters.root(name, adapter);
+        return adapter;
     }
 
     public static final class Builder {
@@ -77,7 +75,7 @@ public class Xml {
             return add(new me.tatarka.parsnip.XmlAdapter.Factory() {
                 @Override
                 public me.tatarka.parsnip.XmlAdapter<?> create(Type targetType, Set<? extends Annotation> annotations, XmlAdapters adapters) {
-                    return annotations.isEmpty() && me.tatarka.parsnip.Util.typesMatch(type, targetType) ? xmlAdapter : null;
+                    return annotations.isEmpty() && Util.typesMatch(type, targetType) ? xmlAdapter : null;
                 }
             });
         }
@@ -93,9 +91,9 @@ public class Xml {
             return add(new me.tatarka.parsnip.XmlAdapter.Factory() {
                 @Override
                 public me.tatarka.parsnip.XmlAdapter<?> create(Type targetType, Set<? extends Annotation> annotations, XmlAdapters adapters) {
-                    if (!me.tatarka.parsnip.Util.typesMatch(type, targetType)) return null;
+                    if (!Util.typesMatch(type, targetType)) return null;
                     // TODO: check for an annotations exact match.
-                    if (!me.tatarka.parsnip.Util.isAnnotationPresent(annotations, annotation))
+                    if (!Util.isAnnotationPresent(annotations, annotation))
                         return null;
                     return xmlAdapter;
                 }
@@ -115,7 +113,7 @@ public class Xml {
             return add(new me.tatarka.parsnip.TypeConverter.Factory() {
                 @Override
                 public me.tatarka.parsnip.TypeConverter<?> create(Type targetType, Set<? extends Annotation> annotations) {
-                    return annotations.isEmpty() && me.tatarka.parsnip.Util.typesMatch(type, targetType) ? typeConverter : null;
+                    return annotations.isEmpty() && Util.typesMatch(type, targetType) ? typeConverter : null;
                 }
             });
         }
@@ -131,9 +129,9 @@ public class Xml {
             return add(new me.tatarka.parsnip.TypeConverter.Factory() {
                 @Override
                 public me.tatarka.parsnip.TypeConverter<?> create(Type targetType, Set<? extends Annotation> annotations) {
-                    if (!me.tatarka.parsnip.Util.typesMatch(type, targetType)) return null;
+                    if (!Util.typesMatch(type, targetType)) return null;
                     // TODO: check for an annotations exact match.
-                    if (!me.tatarka.parsnip.Util.isAnnotationPresent(annotations, annotation))
+                    if (!Util.isAnnotationPresent(annotations, annotation))
                         return null;
                     return typeConverter;
                 }
@@ -153,4 +151,5 @@ public class Xml {
             return new Xml(this);
         }
     }
+
 }

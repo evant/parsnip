@@ -32,7 +32,7 @@ sourceCompatibility = 1.7
 
 android {
     compileSdkVersion 23
-    buildToolsVersion "23.0.0"
+    buildToolsVersion "23.0.2"
 
     defaultConfig {
         minSdkVersion 15
@@ -52,8 +52,9 @@ configurations {
 
 dependencies {
     compile project(':parsnip')
-    compile 'com.android.support:appcompat-v7:23.0.0'
+    compile project(':retrofit-converter')
+    compile 'com.android.support:appcompat-v7:23.1.1'
     compile 'org.quanqi:android-holo-graph:0.1.0'
     compile 'org.simpleframework:simple-xml:2.7.1'
-    compile 'com.squareup.retrofit:retrofit:2.0.0-beta1'
+    compile 'com.squareup.retrofit:retrofit:2.0.0-beta2'
 }

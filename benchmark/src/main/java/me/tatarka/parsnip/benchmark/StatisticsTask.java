@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import me.tatarka.parsnip.benchmark.parsers.DOMTweetsReader;
-import me.tatarka.parsnip.benchmark.parsers.ParsnipReflectionTweetsReader;
 import me.tatarka.parsnip.benchmark.parsers.ParsnipTweetsReader;
 import me.tatarka.parsnip.benchmark.parsers.PullParserTweetsReader;
 import me.tatarka.parsnip.benchmark.parsers.SAXTweetsReader;
@@ -117,7 +116,7 @@ public class StatisticsTask extends AsyncTask<Void, Integer, Statistics[]> {
                 SAXTweetsReader.FACTORY,
                 PullParserTweetsReader.FACTORY,
                 DOMTweetsReader.FACTORY,
-                ParsnipReflectionTweetsReader.FACTORY,
+                ParsnipTweetsReader.FACTORY,
                 SimpleXmlReader.FACTORY
         );
 

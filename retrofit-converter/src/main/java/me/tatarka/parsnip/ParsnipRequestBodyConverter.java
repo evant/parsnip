@@ -18,40 +18,32 @@ package me.tatarka.parsnip;
 
 import com.squareup.okhttp.MediaType;
 import com.squareup.okhttp.RequestBody;
-import com.squareup.okhttp.ResponseBody;
 
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 
 import okio.Buffer;
-import okio.BufferedSource;
 import retrofit.Converter;
 
-final class ParsnipConverter<T> implements Converter<T> {
+public class ParsnipRequestBodyConverter<T> implements Converter<T, RequestBody> {
     private static final MediaType MEDIA_TYPE = MediaType.parse("application/xml; charset=utf8");
+    private static final String CHARSET = "UTF-8";
 
     private final XmlAdapter<T> adapter;
 
-    ParsnipConverter(XmlAdapter<T> adapter) {
+    public ParsnipRequestBodyConverter(XmlAdapter<T> adapter) {
         this.adapter = adapter;
     }
 
     @Override
-    public T fromBody(ResponseBody body) throws IOException {
-        BufferedSource source = body.source();
-        try {
-            return adapter.fromXml(source);
-        } finally {
-            source.close();
-        }
-    }
-
-    @Override
-    public RequestBody toBody(T value) {
+    public RequestBody convert(T value) throws IOException {
         Buffer buffer = new Buffer();
         try {
-            adapter.toXml(buffer, value);
-        } catch (IOException e) {
-            throw new AssertionError(e); // Writing to Buffer does no I/O.
+            OutputStreamWriter osw = new OutputStreamWriter(buffer.outputStream(), CHARSET);
+            adapter.toXml(osw, value);
+            osw.flush();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
         return RequestBody.create(MEDIA_TYPE, buffer.readByteString());
     }

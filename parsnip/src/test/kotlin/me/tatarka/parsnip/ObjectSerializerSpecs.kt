@@ -17,7 +17,8 @@
 package me.tatarka.parsnip
 
 import me.tatarka.parsnip.classes.*
-import me.tatarka.parsnip.Xml
+import org.assertj.core.api.Assertions
+import org.assertj.core.api.Assertions.assertThat
 import org.jetbrains.spek.api.Spek
 import kotlin.test.assertEquals
 
@@ -27,17 +28,17 @@ class ObjectSerializerSpecs : Spek() {
             val xml = Xml.Builder().build()
 
             on("an empty object") {
-                val adapter = xml.adapter(javaClass<EmptyObject>())
+                val adapter = xml.adapter(EmptyObject::class.java)
                 val emptyObject = EmptyObject()
                 val result = adapter.toXml(emptyObject)
 
                 it("should write the object as a root tag") {
-                    assertEquals("<EmptyObject/>", result)
+                    assertEquals("<EmptyObject />", result)
                 }
             }
 
             on("an object with primitive attribute fields") {
-                val adapter = xml.adapter(javaClass<PrimitiveObject>())
+                val adapter = xml.adapter(PrimitiveObject::class.java)
                 val primitiveObject = PrimitiveObject(
                         boolean = true,
                         byte = 1,
@@ -51,32 +52,32 @@ class ObjectSerializerSpecs : Spek() {
                 val result = adapter.toXml(primitiveObject)
 
                 it("should write the object with the fields as attributes") {
-                    assertEquals("<PrimitiveObject boolean=\"true\" byte=\"1\" char=\"a\" double=\"1.0\" float=\"1.0\" int=\"1\" long=\"1\" short=\"1\"/>", result)
+                    assertEquals("<PrimitiveObject boolean=\"true\" byte=\"1\" char=\"a\" double=\"1.0\" float=\"1.0\" int=\"1\" long=\"1\" short=\"1\" />", result)
                 }
             }
 
             on("an object with a string attribute field") {
-                val adapter = xml.adapter(javaClass<StringObject>())
+                val adapter = xml.adapter(StringObject::class.java)
                 val stringObject = StringObject(string1 = "test", string2 = null)
                 val result = adapter.toXml(stringObject)
 
                 it("should write the object with a string field attribute") {
-                    assertEquals("<StringObject string1=\"test\"/>", result)
+                    assertEquals("<StringObject string1=\"test\" />", result)
                 }
             }
 
             on("an object with an enum attribute field") {
-                val adapter = xml.adapter(javaClass<EnumObject>())
+                val adapter = xml.adapter(EnumObject::class.java)
                 val enumObject = EnumObject(enum1 = TestEnum.One, enum2 = TestEnum.Two)
                 val result = adapter.toXml(enumObject)
 
                 it("should write the enum attributes") {
-                    assertEquals("<EnumObject enum1=\"One\" enum2=\"Two\"/>", result)
+                    assertEquals("<EnumObject enum1=\"One\" enum2=\"Two\" />", result)
                 }
             }
 
             on("an object with a text field") {
-                val adapter = xml.adapter(javaClass<TextObject>())
+                val adapter = xml.adapter(TextObject::class.java)
                 val textObject = TextObject(text = "test")
                 val result = adapter.toXml(textObject)
 
@@ -86,7 +87,7 @@ class ObjectSerializerSpecs : Spek() {
             }
 
             on("an object with a tag field") {
-                val adapter = xml.adapter(javaClass<TagObject>())
+                val adapter = xml.adapter(TagObject::class.java)
                 val tagObject = TagObject(text = "test", items = listOf("test1", "test2"))
                 val result = adapter.toXml(tagObject)
 
@@ -96,32 +97,32 @@ class ObjectSerializerSpecs : Spek() {
             }
 
             on("an object with a nested one") {
-                val adapter = xml.adapter(javaClass<NestedObject>())
+                val adapter = xml.adapter(NestedObject::class.java)
                 val nestedObject = NestedObject(StringObject(string1 = "test", string2 = null))
                 val result = adapter.toXml(nestedObject)
 
                 it("should write nested tags") {
-                    assertEquals("<NestedObject><nested string1=\"test\"/></NestedObject>", result)
+                    assertEquals("<NestedObject><nested string1=\"test\" /></NestedObject>", result)
                 }
             }
 
             on("an object with a namespace attribute") {
-                val adapter = xml.adapter(javaClass<NamespaceObject>())
+                val adapter = xml.adapter(NamespaceObject::class.java)
                 val namespaceObject = NamespaceObject("value", StringObject("value", null), listOf(StringObject("test1", null), StringObject("test2", null)))
                 val result = adapter.toXml(namespaceObject)
 
                 it("should write a namespaced attribute") {
-                    assertEquals("<NamespaceObject xmlns:ns=\"foo\" ns:attribute=\"value\"><ns:tag string1=\"value\"/><ns:StringObject string1=\"test1\"/><ns:StringObject string1=\"test2\"/></NamespaceObject>", result)
+                    assertThat(result).isXmlEqualTo("<NamespaceObject xmlns:ns=\"foo\" ns:attribute=\"value\"><ns:tag string1=\"value\" /><ns:StringObject string1=\"test1\" /><ns:StringObject string1=\"test2\" /></NamespaceObject>")
                 }
             }
-            
+
             on("an object with an attribute and tag of the same name") {
-                val adapter = xml.adapter(javaClass<SameNameObject>())
+                val adapter = xml.adapter(SameNameObject::class.java)
                 val sameNameObject = SameNameObject("value", StringObject("value", null))
                 val result = adapter.toXml(sameNameObject)
-                
+
                 it("should write the attribute and tag of the same name") {
-                    assertEquals("<SameNameObject name=\"value\"><name string1=\"value\"/></SameNameObject>", result)
+                    assertEquals("<SameNameObject name=\"value\"><name string1=\"value\" /></SameNameObject>", result)
                 }
             }
         }
