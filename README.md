@@ -2,9 +2,7 @@
 
 # parsnip
  A modern XML library for Android and Java
-
-**Warning!** The parser is quite buggy at the moment and only works with the simpilest of xml.
-
+ 
 ## Why parsnip?
 - Simple modern api similar to [gson](https://github.com/google/gson) and [moshi](https://github.com/square/moshi).
 - Based on kxml which is fast and memory efficient on Android.
