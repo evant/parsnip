@@ -16,6 +16,8 @@
 
 apply plugin: 'java'
 
+sourceCompatibility = 1.7
+
 repositories {
     mavenCentral()
 }
@@ -23,4 +25,8 @@ repositories {
 dependencies {
     compile project(':parsnip')
     compile 'com.squareup.retrofit:retrofit:2.0.0-beta2'
+}
+
+if (project.hasProperty('sonatype.username') && project.hasProperty('sonatype.password')) {
+    apply from: 'publish.gradle'
 }

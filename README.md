@@ -1,4 +1,4 @@
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/me.tatarka/parsnip/badge.svg?style=flat)](https://maven-badges.herokuapp.com/maven-central/me.tatarka/parsnip)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/me.tatarka.parsnip/parsnip/badge.svg?style=flat)](https://maven-badges.herokuapp.com/maven-central/me.tatarka.parsnip/parsnip)
 
 # parsnip
  A modern XML library for Android and Java
@@ -15,14 +15,27 @@
 ### Download
 
 ```groovy
-compile 'me.tatarka:parsnip:0.1'
+compile 'me.tatarka.parsnip:parsnip:0.2'
 ```
 
 ```xml
 <dependency>
-    <groupId>me.tatarka</groupId>
+    <groupId>me.tatarka.parsnip</groupId>
     <artifactId>parsnip</artifactId>
-    <version>0.1</version>
+    <version>0.2</version>
+</dependency>
+```
+
+There is also a retrofit converter
+```groovy
+compile 'me.tatarka.parsnip:parsnip-retrofit-converter:0.2'
+```
+
+```xml
+<dependency>
+    <groupId>me.tatarka.parsnip</groupId>
+    <artifactId>parsnip-retrofit-converter</artifactId>
+    <version>0.2</version>
 </dependency>
 ```
 

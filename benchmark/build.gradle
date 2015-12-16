@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-group 'me.tatarka'
-version '1.0-SNAPSHOT'
-
 buildscript {
     repositories {
         jcenter()
@@ -45,14 +42,14 @@ repositories {
 }
 configurations {
     // These are packaged in android
-    all*.exclude module:'stax'
-    all*.exclude module:'stax-api'
-    all*.exclude module:'xpp3'
+    all*.exclude module: 'stax'
+    all*.exclude module: 'stax-api'
+    all*.exclude module: 'xpp3'
 }
 
 dependencies {
     compile project(':parsnip')
-    compile project(':retrofit-converter')
+    compile project(':parsnip-retrofit-converter')
     compile 'com.android.support:appcompat-v7:23.1.1'
     compile 'org.quanqi:android-holo-graph:0.1.0'
     compile 'org.simpleframework:simple-xml:2.7.1'
