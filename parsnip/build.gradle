@@ -38,7 +38,7 @@ dependencies {
     compile 'net.sf.kxml:kxml2:2.3.0'
     testCompile 'junit:junit:4.11'
     testCompile 'org.assertj:assertj-core:3.2.0'
-    testCompile 'org.jetbrains.spek:spek:0.1.182'
+    testCompile 'org.jetbrains.spek:spek:1.0.9'
     testCompile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     testCompile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
 
