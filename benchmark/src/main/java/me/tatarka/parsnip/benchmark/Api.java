@@ -18,7 +18,7 @@ package me.tatarka.parsnip.benchmark;
 
 import me.tatarka.parsnip.ParsnipConverterFactory;
 import me.tatarka.parsnip.Xml;
-import retrofit.Retrofit;
+import retrofit2.Retrofit;
 
 public class Api {
 

@@ -16,12 +16,11 @@
 
 package me.tatarka.parsnip;
 
-import com.squareup.okhttp.ResponseBody;
-
 import java.io.IOException;
 import java.io.InputStream;
 
-import retrofit.Converter;
+import okhttp3.ResponseBody;
+import retrofit2.Converter;
 
 public class ParsnipResponseBodyConverter<T> implements Converter<ResponseBody, T> {
 

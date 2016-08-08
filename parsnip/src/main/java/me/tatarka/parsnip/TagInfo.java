@@ -34,6 +34,7 @@ public class TagInfo {
     public TagInfo(String name, String namespace, String alias) {
         this.name = name;
         this.namespace = namespace;
+        this.alias = alias;
     }
 
     public String name() {
