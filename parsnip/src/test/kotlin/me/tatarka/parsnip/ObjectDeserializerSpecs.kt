@@ -102,6 +102,19 @@ class ObjectDeserializerSpecs : Spek({
             }
         }
 
+        on("an object with a named enum attribute field") {
+            val adapter = xml.adapter(NamedEnumObject::class.java)
+            val enumObject = adapter.fromXml("<NamedEnumObject enum1=\"ONE\" enum2=\"TWO\" />")
+
+            it("should set the enum1 field") {
+                assertEquals(NamedTestEnum.One, enumObject.enum1)
+            }
+
+            it("should set the enum2 field") {
+                assertEquals(NamedTestEnum.Two, enumObject.enum2)
+            }
+        }
+
         on("an object with a text field") {
             val adapter = xml.adapter(TextObject::class.java)
             val textObject = adapter.fromXml("<TextObject>test</TextObject>")

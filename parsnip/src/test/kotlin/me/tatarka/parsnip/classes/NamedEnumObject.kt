@@ -16,10 +16,15 @@
 
 package me.tatarka.parsnip.classes
 
-data
-class EnumObject(val enum1: TestEnum, val enum2: TestEnum)
+import me.tatarka.parsnip.annotations.SerializedName
 
-enum class TestEnum {
-    One, Two
+data
+class NamedEnumObject(val enum1: NamedTestEnum, val enum2: NamedTestEnum)
+
+enum class NamedTestEnum {
+    @SerializedName("ONE")
+    One, 
+    @SerializedName("TWO")
+    Two
 }
 

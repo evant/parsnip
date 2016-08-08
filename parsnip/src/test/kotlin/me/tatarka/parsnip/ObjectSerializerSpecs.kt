@@ -74,6 +74,16 @@ class ObjectSerializerSpecs : Spek({
             }
         }
 
+        on("an object with a named enum attribute field") {
+            val adapter = xml.adapter(NamedEnumObject::class.java)
+            val enumObject = NamedEnumObject(enum1 = NamedTestEnum.One, enum2 = NamedTestEnum.Two)
+            val result = adapter.toXml(enumObject)
+
+            it("should write the enum attributes") {
+                assertEquals("<NamedEnumObject enum1=\"ONE\" enum2=\"TWO\" />", result)
+            }
+        }
+
         on("an object with a text field") {
             val adapter = xml.adapter(TextObject::class.java)
             val textObject = TextObject(text = "test")

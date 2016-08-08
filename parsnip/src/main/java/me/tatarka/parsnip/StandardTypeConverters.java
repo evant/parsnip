@@ -18,12 +18,16 @@ package me.tatarka.parsnip;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
-import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
+import me.tatarka.parsnip.TypeConverter.Factory;
+import me.tatarka.parsnip.annotations.SerializedName;
+
 final class StandardTypeConverters {
-    
-    static final me.tatarka.parsnip.TypeConverter.Factory FACTORY = new me.tatarka.parsnip.TypeConverter.Factory() {
+
+    static final Factory FACTORY = new Factory() {
         @Override
         public me.tatarka.parsnip.TypeConverter<?> create(Type type, Set<? extends Annotation> annotations) {
             if (type == boolean.class) return BOOLEAN_TYPE_CONVERTER;
@@ -46,25 +50,25 @@ final class StandardTypeConverters {
             Class<?> rawType = Types.getRawType(type);
             if (rawType.isEnum()) {
                 //noinspection unchecked
-                return enumConverter((Class<? extends Enum>) rawType);
+                return new EnumTypeConverter<>((Class<? extends Enum>) rawType);
             }
             return null;
         }
     };
-    
+
     private static final String ERROR_FORMAT = "Expected %s but was %s";
 
     private static int rangeCheckInt(String strValue, String typeMessage, int min, int max)
-            throws me.tatarka.parsnip.XmlDataException {
+            throws XmlDataException {
         int value = Integer.parseInt(strValue);
         if (value < min || value > max) {
-            throw new me.tatarka.parsnip.XmlDataException(
+            throw new XmlDataException(
                     String.format(ERROR_FORMAT, typeMessage, value));
         }
         return value;
     }
 
-    static final me.tatarka.parsnip.TypeConverter<Boolean> BOOLEAN_TYPE_CONVERTER = new me.tatarka.parsnip.TypeConverter<Boolean>() {
+    static final TypeConverter<Boolean> BOOLEAN_TYPE_CONVERTER = new TypeConverter<Boolean>() {
         @Override
         public Boolean from(String value) {
             return Boolean.parseBoolean(value);
@@ -76,7 +80,7 @@ final class StandardTypeConverters {
         }
     };
 
-    static final me.tatarka.parsnip.TypeConverter<Byte> BYTE_TYPE_CONVERTER = new me.tatarka.parsnip.TypeConverter<Byte>() {
+    static final TypeConverter<Byte> BYTE_TYPE_CONVERTER = new TypeConverter<Byte>() {
         @Override
         public Byte from(String value) {
             return (byte) rangeCheckInt(value, "a byte", Byte.MIN_VALUE, 0xFF);
@@ -88,11 +92,11 @@ final class StandardTypeConverters {
         }
     };
 
-    static final me.tatarka.parsnip.TypeConverter<Character> CHARACTER_TYPE_CONVERTER = new me.tatarka.parsnip.TypeConverter<Character>() {
+    static final TypeConverter<Character> CHARACTER_TYPE_CONVERTER = new TypeConverter<Character>() {
         @Override
         public Character from(String value) {
             if (value.length() > 1) {
-                throw new me.tatarka.parsnip.XmlDataException(String.format(ERROR_FORMAT, "a char", '"' + value + '"'));
+                throw new XmlDataException(String.format(ERROR_FORMAT, "a char", '"' + value + '"'));
             }
             return value.charAt(0);
         }
@@ -103,7 +107,7 @@ final class StandardTypeConverters {
         }
     };
 
-    static final me.tatarka.parsnip.TypeConverter<Double> DOUBLE_TYPE_CONVERTER = new me.tatarka.parsnip.TypeConverter<Double>() {
+    static final TypeConverter<Double> DOUBLE_TYPE_CONVERTER = new TypeConverter<Double>() {
         @Override
         public Double from(String value) {
             return Double.parseDouble(value);
@@ -115,7 +119,7 @@ final class StandardTypeConverters {
         }
     };
 
-    static final me.tatarka.parsnip.TypeConverter<Float> FLOAT_TYPE_CONVERTER = new me.tatarka.parsnip.TypeConverter<Float>() {
+    static final TypeConverter<Float> FLOAT_TYPE_CONVERTER = new TypeConverter<Float>() {
         @Override
         public Float from(String value) {
             return Float.parseFloat(value);
@@ -127,7 +131,7 @@ final class StandardTypeConverters {
         }
     };
 
-    static final me.tatarka.parsnip.TypeConverter<Integer> INTEGER_TYPE_CONVERTER = new me.tatarka.parsnip.TypeConverter<Integer>() {
+    static final TypeConverter<Integer> INTEGER_TYPE_CONVERTER = new TypeConverter<Integer>() {
         @Override
         public Integer from(String value) {
             return Integer.parseInt(value);
@@ -139,7 +143,7 @@ final class StandardTypeConverters {
         }
     };
 
-    static final me.tatarka.parsnip.TypeConverter<Long> LONG_TYPE_CONVERTER = new me.tatarka.parsnip.TypeConverter<Long>() {
+    static final TypeConverter<Long> LONG_TYPE_CONVERTER = new TypeConverter<Long>() {
         @Override
         public Long from(String value) {
             return Long.parseLong(value);
@@ -151,7 +155,7 @@ final class StandardTypeConverters {
         }
     };
 
-    static final me.tatarka.parsnip.TypeConverter<Short> SHORT_TYPE_CONVERTER = new me.tatarka.parsnip.TypeConverter<Short>() {
+    static final TypeConverter<Short> SHORT_TYPE_CONVERTER = new TypeConverter<Short>() {
         @Override
         public Short from(String value) {
             return (short) rangeCheckInt(value, "a short", Short.MIN_VALUE, Short.MAX_VALUE);
@@ -163,7 +167,7 @@ final class StandardTypeConverters {
         }
     };
 
-    static final me.tatarka.parsnip.TypeConverter<String> STRING_TYPE_CONVERTER = new me.tatarka.parsnip.TypeConverter<String>() {
+    static final TypeConverter<String> STRING_TYPE_CONVERTER = new TypeConverter<String>() {
         @Override
         public String from(String value) {
             return value;
@@ -175,21 +179,37 @@ final class StandardTypeConverters {
         }
     };
 
-    static <T extends Enum<T>> me.tatarka.parsnip.TypeConverter<T> enumConverter(final Class<T> enumType) {
-        return new me.tatarka.parsnip.TypeConverter<T>() {
-            @Override
-            public T from(String value) {
-                try {
-                    return Enum.valueOf(enumType, value);
-                } catch (IllegalArgumentException e) {
-                    throw new me.tatarka.parsnip.XmlDataException("Expected one of " + Arrays.toString(enumType.getEnumConstants()) + " but was " + value);
-                }
-            }
+    static final class EnumTypeConverter<T extends Enum<T>> implements TypeConverter<T> {
+        private final Map<String, T> nameConstantMap;
+        private final String[] nameStrings;
 
-            @Override
-            public String to(T value) {
-                return value.name();
+        EnumTypeConverter(Class<T> enumType) {
+            try {
+                T[] constants = enumType.getEnumConstants();
+                nameConstantMap = new LinkedHashMap<>();
+                nameStrings = new String[constants.length];
+                for (int i = 0; i < constants.length; i++) {
+                    T constant = constants[i];
+                    SerializedName annotation = enumType.getField(constant.name()).getAnnotation(SerializedName.class);
+                    String name = annotation != null ? annotation.value() : constant.name();
+                    nameConstantMap.put(name, constant);
+                    nameStrings[i] = name;
+                }
+            } catch (NoSuchFieldException e) {
+                throw new AssertionError("Missing field in " + enumType.getName());
             }
-        };
+        }
+
+        @Override
+        public T from(String value) {
+            T constant = nameConstantMap.get(value);
+            if (constant != null) return constant;
+            throw new XmlDataException("Expected one of " + nameConstantMap.keySet() + " but was " + value);
+        }
+
+        @Override
+        public String to(T value) {
+            return nameStrings[value.ordinal()];
+        }
     }
 }
