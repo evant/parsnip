@@ -56,7 +56,7 @@ class ObjectSerializerSpecs : Spek({
 
         on("an object with a string attribute field") {
             val adapter = xml.adapter(StringObject::class.java)
-            val stringObject = StringObject(string1 = "test", string2 = null)
+            val stringObject = StringObject(string1 = "test")
             val result = adapter.toXml(stringObject)
 
             it("should write the object with a string field attribute") {
@@ -96,7 +96,7 @@ class ObjectSerializerSpecs : Spek({
 
         on("an object with a nested one") {
             val adapter = xml.adapter(NestedObject::class.java)
-            val nestedObject = NestedObject(StringObject(string1 = "test", string2 = null))
+            val nestedObject = NestedObject(StringObject(string1 = "test"))
             val result = adapter.toXml(nestedObject)
 
             it("should write nested tags") {
@@ -106,21 +106,31 @@ class ObjectSerializerSpecs : Spek({
 
         on("an object with a namespace attribute") {
             val adapter = xml.adapter(NamespaceObject::class.java)
-            val namespaceObject = NamespaceObject("value", StringObject("value", null), listOf(StringObject("test1", null), StringObject("test2", null)))
+            val namespaceObject = NamespaceObject("value", StringObject(string1 = "value"), listOf(StringObject(string1 = "test1"), StringObject(string1 = "test2")))
             val result = adapter.toXml(namespaceObject)
 
             it("should write a namespaced attribute") {
-                assertThat(result).isXmlEqualTo("<NamespaceObject xmlns:ns=\"foo\" ns:attribute=\"value\"><ns:tag string1=\"value\" /><ns:StringObject string1=\"test1\" /><ns:StringObject string1=\"test2\" /></NamespaceObject>")
+                assertThat(result).isXmlEqualTo("<NamespaceObject xmlns:ns=\"foo\" ns:attribute=\"value\"><ns:tag string1=\"value\" /><ns:item string1=\"test1\" /><ns:item string1=\"test2\" /></NamespaceObject>")
             }
         }
 
         on("an object with an attribute and tag of the same name") {
             val adapter = xml.adapter(SameNameObject::class.java)
-            val sameNameObject = SameNameObject("value", StringObject("value", null))
+            val sameNameObject = SameNameObject("value", StringObject(string1 = "value"))
             val result = adapter.toXml(sameNameObject)
 
             it("should write the attribute and tag of the same name") {
                 assertEquals("<SameNameObject name=\"value\"><name string1=\"value\" /></SameNameObject>", result)
+            }
+        }
+
+        on("an object with a collection of tags") {
+            val adapter = xml.adapter(CollectionObject::class.java)
+            val collectionObject = CollectionObject(listOf(StringObject(string1 = "test1"), StringObject(string1 = "test2")))
+            val result = adapter.toXml(collectionObject)
+
+            it("should write the items into a collection of tags") {
+                assertEquals("<CollectionObject><item string1=\"test1\" /><item string1=\"test2\" /></CollectionObject>", result)
             }
         }
     }

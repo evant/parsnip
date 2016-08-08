@@ -22,5 +22,5 @@ data
 class NamespaceObject(
         @Namespace("foo", alias = "ns") val attribute: String,
         @Namespace("foo", alias = "ns") val tag: StringObject,
-        @Namespace("foo", alias = "ns") val items: List<StringObject>
+        @Namespace("foo", alias = "ns") val item: List<StringObject>
 )

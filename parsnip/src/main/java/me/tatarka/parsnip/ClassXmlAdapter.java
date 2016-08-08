@@ -97,7 +97,7 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
                     Class<?> rawElementType = Types.getRawType(elementType);
                     CollectionFactory collectionFactory = rawFieldType == List.class || rawFieldType == Collection.class
                             ? ARRAY_LIST_COLLECTION_FACTORY : LINKED_HASH_SET_COLLECTION_FACTORY;
-                    String name = getCollectionFieldName(field, rawElementType);
+                    String name = getFieldName(field);
                     Namespace namespace = getNamespace(field);
                     XmlAdapter<?> adapter = adapters.adapter(rawElementType, annotations);
                     tags.add(new CollectionFieldBinding<>(field, name, namespace, adapter, collectionFactory));
@@ -182,25 +182,6 @@ final class ClassXmlAdapter<T> extends XmlAdapter<T> {
          */
         private Namespace getNamespace(Field field) {
             return field.getAnnotation(Namespace.class);
-        }
-
-        /**
-         * Returns the collection field name, taking into account @Serialize name. Uses the name of
-         * the collection type by default, as that is likely to be singular as opposed to the field
-         * name which is likely to be plural.
-         */
-        private String getCollectionFieldName(Field field, Class<?> rawElementType) {
-            SerializedName serializedName = field.getAnnotation(SerializedName.class);
-            if (serializedName != null) {
-                return serializedName.value();
-            } else {
-                serializedName = rawElementType.getAnnotation(SerializedName.class);
-                if (serializedName != null) {
-                    return serializedName.value();
-                } else {
-                    return rawElementType.getSimpleName();
-                }
-            }
         }
     };
 

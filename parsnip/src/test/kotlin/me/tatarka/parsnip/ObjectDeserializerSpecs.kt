@@ -139,16 +139,16 @@ class ObjectDeserializerSpecs : Spek({
 
         on("an object with a collection of tags") {
             val adapter = xml.adapter(CollectionObject::class.java)
-            val collectionObject = adapter.fromXml("<CollectionObject><StringObject string1=\"test1\"/><StringObject string1=\"test2\"/></CollectionObject>")
+            val collectionObject = adapter.fromXml("<CollectionObject><item string1=\"test1\"/><item string1=\"test2\"/></CollectionObject>")
 
             it("should read the items into a collection") {
-                assertEquals(listOf(StringObject("test1", null), StringObject("test2", null)), collectionObject.collection)
+                assertEquals(listOf(StringObject("test1", null), StringObject("test2", null)), collectionObject.item)
             }
         }
 
         on("an object with namespaces") {
             val adapter = xml.adapter(NamespaceObject::class.java)
-            val namespaceObject = adapter.fromXml("<NamespaceObject xmlns:ns=\"foo\" ns:attribute=\"value\" attribute=\"notValue\"><ns:tag string1=\"test\"/><ns:StringObject string1=\"test1\"/><ns:StringObject string1=\"test2\"/></NamespaceObject>")
+            val namespaceObject = adapter.fromXml("<NamespaceObject xmlns:ns=\"foo\" ns:attribute=\"value\" attribute=\"notValue\"><ns:tag string1=\"test\"/><ns:item string1=\"test1\"/><ns:item string1=\"test2\"/></NamespaceObject>")
 
             it("should read the namespaced attribute, not the other one") {
                 assertEquals("value", namespaceObject.attribute)
@@ -159,7 +159,7 @@ class ObjectDeserializerSpecs : Spek({
             }
 
             it("should read the namespaced list") {
-                assertEquals(listOf(StringObject("test1", null), StringObject("test2", null)), namespaceObject.items)
+                assertEquals(listOf(StringObject("test1", null), StringObject("test2", null)), namespaceObject.item)
             }
         }
 
