@@ -13,7 +13,7 @@
 ### Download
 
 ```groovy
-compile 'me.tatarka.parsnip:parsnip:0.2'
+compile 'me.tatarka.parsnip:parsnip:0.3'
 ```
 
 ```xml
@@ -26,7 +26,7 @@ compile 'me.tatarka.parsnip:parsnip:0.2'
 
 There is also a retrofit converter
 ```groovy
-compile 'me.tatarka.parsnip:parsnip-retrofit-converter:0.2'
+compile 'me.tatarka.parsnip:parsnip-retrofit-converter:0.3'
 ```
 
 ```xml
