@@ -72,7 +72,7 @@ If you have these classes:
 ```java
 class BlackjackHand {
   public final Card hiddenCard;
-  public final List<Card> visibleCards;
+  public final List<Card> visibleCard;
   ...
 }
 
@@ -91,8 +91,8 @@ Parsnip will read and write this xml:
 ```xml
 <BlackjackHand>
   <hiddenCard rank="6" suit="SPADES"/>
-  <Card rank="4" suit="CLUBS"/>
-  <Card rank="A" suit="HEARTS"/>
+  <visibleCard rank="4" suit="CLUBS"/>
+  <visibleCard rank="A" suit="HEARTS"/>
 </BlackjackHand>
 ```
 
