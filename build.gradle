@@ -16,7 +16,7 @@
 
 subprojects {
     group 'me.tatarka.parsnip'
-    version '0.2'
+    version '0.3'
 }
 buildscript {
     ext.kotlin_version = '1.0.3'
