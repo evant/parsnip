@@ -15,7 +15,7 @@
  */
 
 buildscript {
-    ext.kotlin_version = '1.0.3'
+    ext.kotlin_version = '1.1.3'
     repositories {
         mavenCentral()
     }
@@ -36,12 +36,18 @@ repositories {
 
 dependencies {
     compile 'net.sf.kxml:kxml2:2.3.0'
-    testCompile 'junit:junit:4.11'
     testCompile 'org.assertj:assertj-core:3.2.0'
-    testCompile 'org.jetbrains.spek:spek:1.0.9'
     testCompile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     testCompile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
-
+    testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
+    testCompile group: 'org.junit.platform', name: 'junit-platform-runner', version: '1.0.0-M4'
+    testCompile (group: 'org.jetbrains.spek', name: 'spek-api', version: '1.1.2') {
+        exclude group: 'org.jetbrains.kotlin'
+    }
+    testRuntime (group: 'org.jetbrains.spek', name: 'spek-junit-platform-engine', version: '1.1.2') {
+        exclude group: 'org.junit.platform'
+        exclude group: 'org.jetbrains.kotlin'
+    }
 }
 
 if (project.hasProperty('sonatype.username') && project.hasProperty('sonatype.password')) {

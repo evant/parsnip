@@ -20,8 +20,8 @@ import me.tatarka.parsnip.annotations.Namespace
 import me.tatarka.parsnip.annotations.SerializedName
 import me.tatarka.parsnip.annotations.Tag
 
-val ATOM_NS: String = "http://www.w3.org/2005/Atom";
-val ITUNES_NS: String = "http://www.itunes.com/dtds/podcast-1.0.dtd";
+const val ATOM_NS: String = "http://www.w3.org/2005/Atom";
+const val ITUNES_NS: String = "http://www.itunes.com/dtds/podcast-1.0.dtd";
 
 data
 @SerializedName("rss")

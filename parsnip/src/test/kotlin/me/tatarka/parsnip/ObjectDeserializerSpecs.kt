@@ -18,15 +18,19 @@ package me.tatarka.parsnip
 
 import me.tatarka.parsnip.classes.*
 import org.jetbrains.spek.api.Spek
+import org.jetbrains.spek.api.dsl.*
+import org.junit.platform.runner.JUnitPlatform
+import org.junit.runner.RunWith
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
+@RunWith(JUnitPlatform::class)
 class ObjectDeserializerSpecs : Spek({
-    given("an Xml") {
-        val xml = Xml.Builder().build()
+    describe("an Xml") {
+        val xml by memoized { Xml.Builder().build() }
 
-        on("an empty object") {
+        context("an empty object") {
             val adapter = xml.adapter(EmptyObject::class.java)
             val emptyObject = adapter.fromXml("<EmptyObject/>")
 
@@ -35,7 +39,7 @@ class ObjectDeserializerSpecs : Spek({
             }
         }
 
-        on("an object with a primitive attribute fields") {
+        context("an object with a primitive attribute fields") {
             val adapter = xml.adapter(PrimitiveObject::class.java)
             val primitiveObject = adapter.fromXml("<PrimitiveObject boolean=\"true\" byte=\"1\" char=\"a\" double=\"1.0\" float=\"1.0\" int=\"1\" long=\"1\" short=\"1\" />")
 
@@ -76,7 +80,7 @@ class ObjectDeserializerSpecs : Spek({
             }
         }
 
-        on("an object with a string attribute field") {
+        context("an object with a string attribute field") {
             val adapter = xml.adapter(StringObject::class.java)
             val stringObject = adapter.fromXml("<StringObject string1=\"test\" />")
 
@@ -89,7 +93,7 @@ class ObjectDeserializerSpecs : Spek({
             }
         }
 
-        on("an object with an enum attribute field") {
+        context("an object with an enum attribute field") {
             val adapter = xml.adapter(EnumObject::class.java)
             val enumObject = adapter.fromXml("<EnumObject enum1=\"One\" enum2=\"Two\" />")
 
@@ -102,7 +106,7 @@ class ObjectDeserializerSpecs : Spek({
             }
         }
 
-        on("an object with a named enum attribute field") {
+        context("an object with a named enum attribute field") {
             val adapter = xml.adapter(NamedEnumObject::class.java)
             val enumObject = adapter.fromXml("<NamedEnumObject enum1=\"ONE\" enum2=\"TWO\" />")
 
@@ -115,7 +119,7 @@ class ObjectDeserializerSpecs : Spek({
             }
         }
 
-        on("an object with a text field") {
+        context("an object with a text field") {
             val adapter = xml.adapter(TextObject::class.java)
             val textObject = adapter.fromXml("<TextObject>test</TextObject>")
 
@@ -124,7 +128,7 @@ class ObjectDeserializerSpecs : Spek({
             }
         }
 
-        on("an object with a tag field") {
+        context("an object with a tag field") {
             val adapter = xml.adapter(TagObject::class.java)
             val tagObject = adapter.fromXml("<TagObject><text>test</text><item>test1</item><item>test2</item></TagObject>")
 
@@ -137,7 +141,7 @@ class ObjectDeserializerSpecs : Spek({
             }
         }
 
-        on("an object with a nested one") {
+        context("an object with a nested one") {
             val adapter = xml.adapter(NestedObject::class.java)
             val nestedObject = adapter.fromXml("<NestedObject><nested string1=\"test\"/></NestedObject>")
 
@@ -150,7 +154,7 @@ class ObjectDeserializerSpecs : Spek({
             }
         }
 
-        on("an object with a collection of tags") {
+        context("an object with a collection of tags") {
             val adapter = xml.adapter(CollectionObject::class.java)
             val collectionObject = adapter.fromXml("<CollectionObject><item string1=\"test1\"/><item string1=\"test2\"/></CollectionObject>")
 
@@ -159,7 +163,7 @@ class ObjectDeserializerSpecs : Spek({
             }
         }
 
-        on("an object with namespaces") {
+        context("an object with namespaces") {
             val adapter = xml.adapter(NamespaceObject::class.java)
             val namespaceObject = adapter.fromXml("<NamespaceObject xmlns:ns=\"foo\" ns:attribute=\"value\" attribute=\"notValue\"><ns:tag string1=\"test\"/><ns:item string1=\"test1\"/><ns:item string1=\"test2\"/></NamespaceObject>")
 
@@ -176,7 +180,7 @@ class ObjectDeserializerSpecs : Spek({
             }
         }
 
-        on("an attribute and tag of the same name") {
+        context("an attribute and tag of the same name") {
             val adapter = xml.adapter(SameNameObject::class.java)
             val sameNameObject = adapter.fromXml("<SameNameObject name=\"value\"><name string1=\"value\"/></SameNameObject>")
 
@@ -189,7 +193,7 @@ class ObjectDeserializerSpecs : Spek({
             }
         }
 
-        on("an object without a namespace but xml with it") {
+        context("an object without a namespace but xml with it") {
             val adapter = xml.adapter(StringObject::class.java)
             val stringObject = adapter.fromXml("<StringObject xmlns:ns=\"foo\" ns:string1=\"value\"/>")
 

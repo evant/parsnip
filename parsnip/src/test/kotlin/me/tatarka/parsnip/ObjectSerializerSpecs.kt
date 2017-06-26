@@ -19,13 +19,17 @@ package me.tatarka.parsnip
 import me.tatarka.parsnip.classes.*
 import org.assertj.core.api.Assertions.assertThat
 import org.jetbrains.spek.api.Spek
+import org.jetbrains.spek.api.dsl.*
+import org.junit.platform.runner.JUnitPlatform
+import org.junit.runner.RunWith
 import kotlin.test.assertEquals
 
+@RunWith(JUnitPlatform::class)
 class ObjectSerializerSpecs : Spek({
-    given("an Xml") {
-        val xml = Xml.Builder().build()
+    describe("an Xml") {
+        val xml by memoized { Xml.Builder().build() }
 
-        on("an empty object") {
+        context("an empty object") {
             val adapter = xml.adapter(EmptyObject::class.java)
             val emptyObject = EmptyObject()
             val result = adapter.toXml(emptyObject)
@@ -35,7 +39,7 @@ class ObjectSerializerSpecs : Spek({
             }
         }
 
-        on("an object with primitive attribute fields") {
+        context("an object with primitive attribute fields") {
             val adapter = xml.adapter(PrimitiveObject::class.java)
             val primitiveObject = PrimitiveObject(
                     boolean = true,
@@ -54,7 +58,7 @@ class ObjectSerializerSpecs : Spek({
             }
         }
 
-        on("an object with a string attribute field") {
+        context("an object with a string attribute field") {
             val adapter = xml.adapter(StringObject::class.java)
             val stringObject = StringObject(string1 = "test")
             val result = adapter.toXml(stringObject)
@@ -64,7 +68,7 @@ class ObjectSerializerSpecs : Spek({
             }
         }
 
-        on("an object with an enum attribute field") {
+        context("an object with an enum attribute field") {
             val adapter = xml.adapter(EnumObject::class.java)
             val enumObject = EnumObject(enum1 = TestEnum.One, enum2 = TestEnum.Two)
             val result = adapter.toXml(enumObject)
@@ -74,7 +78,7 @@ class ObjectSerializerSpecs : Spek({
             }
         }
 
-        on("an object with a named enum attribute field") {
+        context("an object with a named enum attribute field") {
             val adapter = xml.adapter(NamedEnumObject::class.java)
             val enumObject = NamedEnumObject(enum1 = NamedTestEnum.One, enum2 = NamedTestEnum.Two)
             val result = adapter.toXml(enumObject)
@@ -84,7 +88,7 @@ class ObjectSerializerSpecs : Spek({
             }
         }
 
-        on("an object with a text field") {
+        context("an object with a text field") {
             val adapter = xml.adapter(TextObject::class.java)
             val textObject = TextObject(text = "test")
             val result = adapter.toXml(textObject)
@@ -94,7 +98,7 @@ class ObjectSerializerSpecs : Spek({
             }
         }
 
-        on("an object with a tag field") {
+        context("an object with a tag field") {
             val adapter = xml.adapter(TagObject::class.java)
             val tagObject = TagObject(text = "test", items = listOf("test1", "test2"))
             val result = adapter.toXml(tagObject)
@@ -104,7 +108,7 @@ class ObjectSerializerSpecs : Spek({
             }
         }
 
-        on("an object with a nested one") {
+        context("an object with a nested one") {
             val adapter = xml.adapter(NestedObject::class.java)
             val nestedObject = NestedObject(StringObject(string1 = "test"))
             val result = adapter.toXml(nestedObject)
@@ -114,7 +118,7 @@ class ObjectSerializerSpecs : Spek({
             }
         }
 
-        on("an object with a namespace attribute") {
+        context("an object with a namespace attribute") {
             val adapter = xml.adapter(NamespaceObject::class.java)
             val namespaceObject = NamespaceObject("value", StringObject(string1 = "value"), listOf(StringObject(string1 = "test1"), StringObject(string1 = "test2")))
             val result = adapter.toXml(namespaceObject)
@@ -124,7 +128,7 @@ class ObjectSerializerSpecs : Spek({
             }
         }
 
-        on("an object with an attribute and tag of the same name") {
+        context("an object with an attribute and tag of the same name") {
             val adapter = xml.adapter(SameNameObject::class.java)
             val sameNameObject = SameNameObject("value", StringObject(string1 = "value"))
             val result = adapter.toXml(sameNameObject)
@@ -134,7 +138,7 @@ class ObjectSerializerSpecs : Spek({
             }
         }
 
-        on("an object with a collection of tags") {
+        context("an object with a collection of tags") {
             val adapter = xml.adapter(CollectionObject::class.java)
             val collectionObject = CollectionObject(listOf(StringObject(string1 = "test1"), StringObject(string1 = "test2")))
             val result = adapter.toXml(collectionObject)
